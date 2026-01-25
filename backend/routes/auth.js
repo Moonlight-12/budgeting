@@ -3,6 +3,7 @@ const User = require('../models/user');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+const jwt = require('jsonwebtoken');
 
 // signup
 router.post('/signup', async (req, res) => {
@@ -36,11 +37,20 @@ router.post('/signin', async (req, res) => {
         if(!comparePassword){
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+        const token = jwt.sign(
+            {
+                userId: user._id,
+                username: user.username
+            },
+            process.env.JWT_SECRET,
+            {expiresIn: '7d'}
+        );
+
+        res.status(200).json({ message: "Signin Successful", username: user.username, token: token });
     } catch (error) {
         console.error('Error during signin:', error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
-    res.status(200).json({message: "Signin Successfull", username: username});
 });
 
 // change password
