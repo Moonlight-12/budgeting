@@ -1,4 +1,5 @@
 const express = require('express');
+const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 
 // Test Up Bank connection
@@ -34,7 +35,7 @@ router.get('/accounts', async (req, res) => {
 });
 
 // Get all transactions from Up Bank
-router.get('/all', async (req, res) => {
+router.get('/all', authMiddleware, async (req, res) => {
   try {
     const response = await fetch('https://api.up.com.au/api/v1/transactions', {
       headers: {
