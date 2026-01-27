@@ -4,7 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const jwt = require("jsonwebtoken");
-const authMiddleware = require("../middleware/auth")
+const authMiddleware = require("../middleware/auth");
 
 // signup
 router.post("/signup", async (req, res) => {
@@ -62,18 +62,18 @@ router.post("/signin", async (req, res) => {
     await user.save();
 
     res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({
       message: "Signin Successful",
@@ -106,10 +106,8 @@ router.post("/change-password", authMiddleware, async (req, res) => {
 
     user.password = newHashedPassword;
     await user.save();
-    return res
-      .status(200)
-      .json({ message: "Change Password Successfull" });
-  } catch (error){
+    return res.status(200).json({ message: "Change Password Successfull" });
+  } catch (error) {
     console.error("Error changing password: ", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
@@ -156,21 +154,44 @@ router.post("/refresh", async (req, res) => {
     await user.save();
 
     res.cookie("accessToken", newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 15 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie("refreshToken", newRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     return res.json({ message: "Token Refreshed" });
   });
+});
+
+router.post("/signout", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User Not Found" });
+    }
+
+    user.refreshToken = null;
+    await user.save();
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    return res.status(200).json({ message: "signout successfull" });
+    
+  } catch (error) {
+    console.error("Fail to Signout", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
 });
 
 module.exports = router;
