@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("../middleware/auth")
 
 // signup
 router.post("/signup", async (req, res) => {
@@ -49,22 +50,34 @@ router.post("/signin", async (req, res) => {
     );
 
     const refreshToken = jwt.sign(
-        {
-            userId: user._id,
-            username: user.username,
-        },
-        process.env.REFRESH_SECRET,
-        {expiresIn: '7d'}
+      {
+        userId: user._id,
+        username: user.username,
+      },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" },
     );
 
     user.refreshToken = refreshToken;
-    await user.save()
+    await user.save();
+
+    res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
 
     res.status(200).json({
       message: "Signin Successful",
       username: user.username,
-      token: accessToken,
-      refreshToken: refreshToken
     });
   } catch (error) {
     console.error("Error during signin:", error);
@@ -73,53 +86,58 @@ router.post("/signin", async (req, res) => {
 });
 
 // change password
-router.post("/change-password", async (req, res) => {
+router.post("/change-password", authMiddleware, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { password, newPassword } = req.body;
+    const userId = req.user.userId;
 
-    const user = User.findOne({ username });
+    const user = await User.findOne({ _id: userId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User Not Found" });
+    }
 
     const comparePassword = await bcrypt.compare(password, user.password);
     if (!comparePassword) {
       return res.status(401).json({ error: "Invalid Credentials" });
     }
 
-    const oldPassword = await User.findOne({ password });
-    if (!oldPassword) {
-      return res.status(400).json({ error: "Old Password Invalid" });
-    }
-  } catch {
+    const newHashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    user.password = newHashedPassword;
+    await user.save();
+    return res
+      .status(200)
+      .json({ message: "Change Password Successfull" });
+  } catch (error){
     console.error("Error changing password: ", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
-  return res
-    .status(200)
-    .json({ message: "Change Password Successfull", user: user });
 });
 
 router.post("/refresh", async (req, res) => {
-  const token = req.body.refreshToken;
+  const token = req.cookies.refreshToken;
 
   if (!token) {
     return res.status(401).json({ message: "Refresh Token Missing" });
   }
 
-  jwt.verify(token, process.env.REFRESH_SECRET, async (err, decoded) => {
-    if (err) {
+  jwt.verify(token, process.env.REFRESH_SECRET, async (error, decoded) => {
+    if (error) {
       return res
         .status(403)
         .json({ message: "Invalid or Expired Refresh Token" });
     }
 
     const user = await User.findById(decoded.userId);
-    if(!user || user.refreshToken !== token){
-        return res.status(403).json({message: "Token Revoked"});
+    if (!user || user.refreshToken !== token) {
+      return res.status(403).json({ message: "Token Revoked" });
     }
 
     const newAccessToken = jwt.sign(
       {
         userId: decoded.userId,
-        username: decoded.username
+        username: decoded.username,
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -128,7 +146,7 @@ router.post("/refresh", async (req, res) => {
     const newRefreshToken = jwt.sign(
       {
         userId: decoded.userId,
-        username: decoded.username
+        username: decoded.username,
       },
       process.env.REFRESH_SECRET,
       { expiresIn: "7d" },
@@ -137,7 +155,21 @@ router.post("/refresh", async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    return res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken});
+    res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+
+    return res.json({ message: "Token Refreshed" });
   });
 });
 
