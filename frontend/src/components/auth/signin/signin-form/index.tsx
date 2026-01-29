@@ -54,6 +54,7 @@ export default function SigninForm() {
         <Field>
           <FieldLabel>Password</FieldLabel>
           <Input
+            type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
