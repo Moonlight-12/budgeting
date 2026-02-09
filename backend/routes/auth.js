@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/auth");
+const { seedCategories } = require("../utils/seedCategories");
 
 // signup
 router.post("/signup", async (req, res) => {
@@ -18,6 +19,10 @@ router.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const newUser = new User({ username, password: hashedPassword, createdAt });
     await newUser.save();
+
+    // Seed default categories for new user
+    await seedCategories(newUser._id);
+
     res
       .status(201)
       .json({ message: "Signup successful", username: newUser.username });
