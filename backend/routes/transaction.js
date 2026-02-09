@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const authMiddleware = require("../middleware/auth");
 const Transaction = require("../models/transaction");
 const router = express.Router();
@@ -61,5 +62,67 @@ router.get("/all", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+router.get("/monthly", authMiddleware, async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const transactions = await Transaction.find({
+      userId: new mongoose.Types.ObjectId(req.user.userId),
+      transactionDate: { $gte: startOfMonth, $lte: endOfToday },
+    }).sort({ transactionDate: -1 });
+
+    res.status(200).json({
+      message: "Monthly transactions retrieved",
+      transactions,
+    });
+  } catch (error) {
+    console.error("Error fetching monthly transactions:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get("/calculate-monthly", authMiddleware, async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(req.user.userId),
+          transactionDate: {
+            $gte: startOfMonth,
+            $lte: endOfToday,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$valueInCents" },
+        },
+      },
+    ]);
+
+    const totalAmount = result.length > 0 ? result[0].totalAmount : 0;
+
+    res.status(200).json({
+      message: "Monthly calculation complete",
+      totalAmountInCents: totalAmount,
+      totalAmount: totalAmount / 100,
+      period: {
+        from: startOfMonth,
+        to: endOfToday,
+      },
+    });
+  } catch (error) {
+    console.error("Error calculating monthly total:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+})
 
 module.exports = router;
