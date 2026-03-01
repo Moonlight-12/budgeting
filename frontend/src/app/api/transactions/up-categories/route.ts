@@ -1,25 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
     const backendUrl = process.env.BACKEND_URL;
     const cookieStore = await cookies();
     let accessToken = cookieStore.get("accessToken")?.value;
     const refreshToken = cookieStore.get("refreshToken")?.value;
-    const full = request.nextUrl.searchParams.get("full") ?? "";
 
     if (!backendUrl) {
-      return NextResponse.json(
-        { message: "Server configuration error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: "Server configuration error" }, { status: 500 });
     }
 
-    const syncUrl = `${backendUrl}/api/v1/transactions/sync${full ? "?full=true" : ""}`;
-
-    let response = await fetch(syncUrl, {
-      method: "POST",
+    let response = await fetch(`${backendUrl}/api/v1/transactions/up-categories`, {
       headers: { Cookie: `accessToken=${accessToken}` },
     });
 
@@ -28,23 +21,17 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { Cookie: `refreshToken=${refreshToken}` },
       });
-
       if (refreshResponse.ok) {
         const setCookieHeader = refreshResponse.headers.get("set-cookie");
         const newAccessToken = setCookieHeader?.match(/accessToken=([^;]+)/)?.[1];
-
         if (newAccessToken) {
-          response = await fetch(syncUrl, {
-            method: "POST",
+          response = await fetch(`${backendUrl}/api/v1/transactions/up-categories`, {
             headers: { Cookie: `accessToken=${newAccessToken}` },
           });
-
           const data = await response.json();
           const nextResponse = NextResponse.json(data, { status: response.status });
           if (setCookieHeader) {
-            setCookieHeader.split(/,(?=\s*\w+=)/).forEach((cookie) => {
-              nextResponse.headers.append("set-cookie", cookie.trim());
-            });
+            setCookieHeader.split(/,(?=\s*\w+=)/).forEach((c) => nextResponse.headers.append("set-cookie", c.trim()));
           }
           return nextResponse;
         }
@@ -54,7 +41,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error("Transaction sync error:", error);
+    console.error("Up categories fetch error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

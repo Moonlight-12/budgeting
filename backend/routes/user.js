@@ -51,4 +51,37 @@ router.post("/change-username", authMiddleware, async (req, res) => {
   }
 });
 
+// GET: check if Up Bank token is set (returns masked version, never the raw key)
+router.get("/up-token", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("upApiKey");
+    const key = user?.upApiKey;
+    res.json({
+      hasToken: !!key,
+      maskedToken: key ? `up:yeah:${"*".repeat(Math.max(0, key.length - 8))}${key.slice(-4)}` : null,
+    });
+  } catch (error) {
+    console.error("Error fetching Up token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT: save/replace Up Bank token
+router.put("/up-token", authMiddleware, async (req, res) => {
+  try {
+    const { upApiKey } = req.body;
+    if (!upApiKey || typeof upApiKey !== "string") {
+      return res.status(400).json({ message: "upApiKey is required" });
+    }
+    await User.findByIdAndUpdate(req.user.userId, { upApiKey });
+    res.json({
+      message: "Up Bank token saved",
+      maskedToken: `up:yeah:${"*".repeat(Math.max(0, upApiKey.length - 8))}${upApiKey.slice(-4)}`,
+    });
+  } catch (error) {
+    console.error("Error saving Up token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
