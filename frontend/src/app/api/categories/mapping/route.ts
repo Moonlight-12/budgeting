@@ -7,20 +7,14 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     let accessToken = cookieStore.get("accessToken")?.value;
     const refreshToken = cookieStore.get("refreshToken")?.value;
-    const full = request.nextUrl.searchParams.get("full") ?? "";
+    const body = await request.json();
 
-    if (!backendUrl) {
-      return NextResponse.json(
-        { message: "Server configuration error" },
-        { status: 500 }
-      );
-    }
+    if (!backendUrl) return NextResponse.json({ message: "Server configuration error" }, { status: 500 });
 
-    const syncUrl = `${backendUrl}/api/v1/transactions/sync${full ? "?full=true" : ""}`;
-
-    let response = await fetch(syncUrl, {
+    let response = await fetch(`${backendUrl}/api/v1/categories/mapping`, {
       method: "POST",
-      headers: { Cookie: `accessToken=${accessToken}` },
+      headers: { Cookie: `accessToken=${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
     if (response.status === 403 && refreshToken) {
@@ -28,23 +22,19 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { Cookie: `refreshToken=${refreshToken}` },
       });
-
       if (refreshResponse.ok) {
         const setCookieHeader = refreshResponse.headers.get("set-cookie");
         const newAccessToken = setCookieHeader?.match(/accessToken=([^;]+)/)?.[1];
-
         if (newAccessToken) {
-          response = await fetch(syncUrl, {
+          response = await fetch(`${backendUrl}/api/v1/categories/mapping`, {
             method: "POST",
-            headers: { Cookie: `accessToken=${newAccessToken}` },
+            headers: { Cookie: `accessToken=${newAccessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
           });
-
           const data = await response.json();
           const nextResponse = NextResponse.json(data, { status: response.status });
           if (setCookieHeader) {
-            setCookieHeader.split(/,(?=\s*\w+=)/).forEach((cookie) => {
-              nextResponse.headers.append("set-cookie", cookie.trim());
-            });
+            setCookieHeader.split(/,(?=\s*\w+=)/).forEach((c) => nextResponse.headers.append("set-cookie", c.trim()));
           }
           return nextResponse;
         }
@@ -54,7 +44,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error("Transaction sync error:", error);
+    console.error("Mapping POST error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

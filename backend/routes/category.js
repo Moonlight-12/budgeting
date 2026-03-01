@@ -52,9 +52,16 @@ router.put("/:categoryId", authMiddleware, async (req, res) => {
   try {
     const { category, budget, color, icon, upCategories } = req.body;
 
+    const patch = {};
+    if (category !== undefined) patch.category = category;
+    if (budget !== undefined) patch.budget = budget;
+    if (color !== undefined) patch.color = color;
+    if (icon !== undefined) patch.icon = icon;
+    if (upCategories !== undefined) patch.upCategories = upCategories;
+
     const updated = await Category.findOneAndUpdate(
       { userId: req.user.userId, categoryId: req.params.categoryId },
-      { category, budget, color, icon, upCategories },
+      { $set: patch },
       { new: true }
     );
 
@@ -84,6 +91,32 @@ router.delete("/:categoryId", authMiddleware, async (req, res) => {
     res.json({ message: "Category deleted" });
   } catch (error) {
     console.error("Error deleting category:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Batch-update the upCategories mapping across all user categories
+router.post("/mapping", authMiddleware, async (req, res) => {
+  try {
+    const { mappings } = req.body; // { [upCategoryId]: userCategoryId }
+
+    const userCategories = await Category.find({ userId: req.user.userId });
+
+    await Promise.all(
+      userCategories.map((cat) => {
+        const newUpCategories = Object.entries(mappings)
+          .filter(([, userCatId]) => userCatId === cat.categoryId)
+          .map(([upCatId]) => upCatId);
+        return Category.updateOne(
+          { userId: req.user.userId, categoryId: cat.categoryId },
+          { $set: { upCategories: newUpCategories } }
+        );
+      })
+    );
+
+    res.json({ message: "Mapping updated" });
+  } catch (error) {
+    console.error("Error updating mapping:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });

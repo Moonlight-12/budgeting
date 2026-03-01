@@ -199,4 +199,65 @@ router.post("/signout", authMiddleware, async (req, res) => {
   }
 });
 
+// Google OAuth — verifies ID token with Google, creates/finds user, issues JWT
+router.post("/google", async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: "Credential required" });
+
+    // Verify the ID token with Google's tokeninfo endpoint (no extra packages needed)
+    const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    const payload = await tokenInfoRes.json();
+
+    if (!tokenInfoRes.ok || payload.error) {
+      return res.status(401).json({ error: "Invalid Google credential" });
+    }
+
+    if (payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+      return res.status(401).json({ error: "Token audience mismatch" });
+    }
+
+    const { sub: googleId, email } = payload;
+    if (!email) return res.status(401).json({ error: "No email in Google token" });
+
+    // Find by googleId, then by email (to link existing accounts)
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      user = await User.findOne({ username: email });
+      if (user) {
+        user.googleId = googleId;
+        await user.save();
+      }
+    }
+
+    if (!user) {
+      // Create a new user — password is a random unusable hash
+      const randomPassword = await bcrypt.hash(Math.random().toString(36) + Date.now(), saltRounds);
+      user = new User({ username: email, password: randomPassword, googleId, createdAt: new Date() });
+      await user.save();
+      await seedCategories(user._id);
+    }
+
+    const cookieOpts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    };
+
+    const accessToken = jwt.sign({ userId: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ userId: user._id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: "7d" });
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.cookie("accessToken", accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie("refreshToken", refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    res.json({ message: "Google signin successful", username: user.username });
+  } catch (error) {
+    console.error("Google auth error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;

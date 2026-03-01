@@ -10,6 +10,7 @@ const transactionSchema = new mongoose.Schema({
   valueInCents: { type: Number, required: true },
   description: { type: String },
   categoryId: {type: String, default: "other"},
+  upCategoryId: { type: String },
   syncedAt: { type: Date },
 });
 
