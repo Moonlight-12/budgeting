@@ -11,6 +11,7 @@ const transactionSchema = new mongoose.Schema({
   description: { type: String },
   categoryId: {type: String, default: "other"},
   upCategoryId: { type: String },
+  accountId: { type: String },
   syncedAt: { type: Date },
 });
 

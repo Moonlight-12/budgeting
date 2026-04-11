@@ -132,6 +132,22 @@ function getBudgetPeriod(utcOffset, referenceDateMs = Date.now()) {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+router.get("/accounts", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("upApiKey");
+    const upApiKey = user?.upApiKey || process.env.UP_API_KEY;
+    if (!upApiKey) return res.status(400).json({ message: "No Up Bank API key configured." });
+
+    const response = await fetch("https://api.up.com.au/api/v1/accounts", {
+      headers: { Authorization: `Bearer ${upApiKey}` },
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
@@ -145,16 +161,42 @@ router.post("/sync", authMiddleware, async (req, res) => {
 
     const full = req.query.full === "true";
 
+    // Resolve the spendings (TRANSACTIONAL) account ID
+    const accountsResponse = await fetch("https://api.up.com.au/api/v1/accounts", {
+      headers: { Authorization: `Bearer ${upApiKey}` },
+    });
+    const accountsData = await accountsResponse.json();
+    const availableAccounts = accountsData.data?.map((a) => ({
+      id: a.id,
+      displayName: a.attributes?.displayName,
+      accountType: a.attributes?.accountType,
+      ownershipType: a.attributes?.ownershipType,
+    })) ?? [];
+    console.log("[sync] Up Bank accounts:", JSON.stringify(availableAccounts, null, 2));
+
+    const spendingsAccount = accountsData.data?.find(
+      (a) => a.attributes?.accountType === "TRANSACTIONAL"
+    );
+    if (!spendingsAccount) {
+      return res.status(400).json({
+        message: "Could not find a TRANSACTIONAL (spendings) account in Up Bank.",
+        availableAccounts,
+      });
+    }
     let sinceParam = "";
     if (!full) {
-      const latest = await Transaction.findOne({ userId: req.user.userId })
+      const latest = await Transaction.findOne({ userId: req.user.userId, accountId: spendingsAccount.id })
         .sort({ transactionDate: -1, settleDate: -1 })
         .select("transactionDate settleDate");
       const sinceDate = latest?.transactionDate || latest?.settleDate;
-      sinceParam = sinceDate ? `&filter[since]=${sinceDate.toISOString()}` : "";
+      sinceParam = sinceDate ? `?page[size]=100&filter[since]=${sinceDate.toISOString()}` : "?page[size]=100";
+    } else {
+      sinceParam = "?page[size]=100";
     }
 
-    let nextUrl = `https://api.up.com.au/api/v1/transactions?page[size]=100${sinceParam}`;
+    let nextUrl = `https://api.up.com.au/api/v1/accounts/${spendingsAccount.id}/transactions${sinceParam}`;
+
+    const seenTransactionIds = new Set();
 
     while (nextUrl) {
       const response = await fetch(nextUrl, {
@@ -163,6 +205,8 @@ router.post("/sync", authMiddleware, async (req, res) => {
       const data = await response.json();
 
       for (const tsn of data.data) {
+        seenTransactionIds.add(tsn.id);
+
         const upCategoryId = tsn.relationships?.category?.data?.id ?? null;
         const description = tsn.attributes.description;
         const categoryId = resolveCategoryId(upCategoryId, description);
@@ -170,8 +214,8 @@ router.post("/sync", authMiddleware, async (req, res) => {
 
         const exists = await Transaction.findOne({ transactionId: tsn.id });
         if (exists) {
-          if (full || exists.categoryId !== categoryId) {
-            await Transaction.updateOne({ _id: exists._id }, { categoryId, upCategoryId });
+          if (full || exists.categoryId !== categoryId || !exists.accountId) {
+            await Transaction.updateOne({ _id: exists._id }, { categoryId, upCategoryId, accountId: spendingsAccount.id });
             results.recategorized++;
           }
           results.skipped++;
@@ -189,6 +233,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
           description: tsn.attributes.description,
           categoryId,
           upCategoryId,
+          accountId: spendingsAccount.id,
           syncedAt: new Date(),
         });
 
@@ -197,6 +242,16 @@ router.post("/sync", authMiddleware, async (req, res) => {
       }
 
       nextUrl = data.links?.next || null;
+    }
+
+    // On a full sync, delete any transactions not returned by the spending account endpoint
+    if (full) {
+      const deleted = await Transaction.deleteMany({
+        userId: req.user.userId,
+        transactionId: { $nin: Array.from(seenTransactionIds) },
+      });
+      console.log(`[sync] Deleted ${deleted.deletedCount} non-spendings transactions`);
+      results.deleted = deleted.deletedCount;
     }
 
     res.json({ message: "Sync Complete", ...results });
