@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { TrendingDown, TrendingUp, Minus, X, Pencil, Check, PiggyBank, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import TransactionDetailModal from "@/src/components/dashboard/transactions-table/transaction-detail-modal";
 
 interface Category {
   _id: string;
@@ -33,6 +34,8 @@ interface Transaction {
   transactionDate: string | null;
   settleDate: string | null;
   categoryId: string;
+  upCategoryId: string | null;
+  status: string;
 }
 
 interface Allocation {
@@ -61,9 +64,10 @@ function getDate(txn: Transaction) {
   return new Date(raw).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function CategoryTransactionsModal({ row, onClose, onBudgetSaved, periodFrom, periodTo }: { row: Row; onClose: () => void; onBudgetSaved: (newBudgetCents: number) => void; periodFrom: string; periodTo: string }) {
+function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionMoved, periodFrom, periodTo }: { row: Row; onClose: () => void; onBudgetSaved: (newBudgetCents: number) => void; onTransactionMoved: (valueInCents: number, newCategoryId: string) => void; periodFrom: string; periodTo: string }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(row.budgetCents / 100));
   const [saving, setSaving] = useState(false);
@@ -90,6 +94,11 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, periodFrom, pe
   }, [row.categoryId, periodFrom, periodTo]);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  useEffect(() => {
     if (editingBudget) inputRef.current?.focus();
   }, [editingBudget]);
 
@@ -110,14 +119,15 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, periodFrom, pe
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
+    <>
       <div
-        className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={onClose}
       >
+      <div
+          className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -184,7 +194,7 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, periodFrom, pe
                 {transactions.map((txn) => {
                   const isNegative = txn.valueInCents < 0;
                   return (
-                    <tr key={txn._id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                    <tr key={txn._id} onClick={() => setSelectedTxn(txn)} className="border-b border-white/5 hover:bg-white/4 transition-colors cursor-pointer">
                       <td className="px-5 py-3 text-zinc-400 whitespace-nowrap text-xs">{getDate(txn)}</td>
                       <td className="px-4 py-3 text-white truncate max-w-[240px]">{txn.description}</td>
                       <td className={`px-5 py-3 text-right font-medium tabular-nums whitespace-nowrap ${isNegative ? "text-rose-400" : "text-emerald-400"}`}>
@@ -197,8 +207,23 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, periodFrom, pe
             </table>
           )}
         </div>
+        </div>
       </div>
-    </div>
+      {selectedTxn && (
+        <TransactionDetailModal
+          transaction={selectedTxn}
+          onClose={() => setSelectedTxn(null)}
+          onUpdate={(updated) => {
+            const txn = transactions.find((t) => t._id === updated._id);
+            if (txn && updated.categoryId !== row.categoryId) {
+              onTransactionMoved(txn.valueInCents, updated.categoryId);
+            }
+            setTransactions((prev) => prev.filter((t) => t._id !== updated._id || updated.categoryId === row.categoryId));
+            setSelectedTxn(null);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -405,7 +430,7 @@ export default function CategoriesTable() {
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
+              rows.filter((row) => row.spentCents !== 0 || row.budgetCents !== 0).map((row) => {
                 const effectiveBudget = row.budgetCents + row.allocationCents;
                 const pct = effectiveBudget > 0
                   ? (row.spentCents / effectiveBudget) * 100
@@ -673,6 +698,14 @@ export default function CategoriesTable() {
               )
             );
             setSelectedRow((r) => r ? { ...r, budgetCents: newBudgetCents } : r);
+          }}
+          onTransactionMoved={(valueInCents, newCategoryId) => {
+            const amount = Math.abs(valueInCents);
+            setRows((prev) => prev.map((r) => {
+              if (r.categoryId === selectedRow.categoryId) return { ...r, spentCents: r.spentCents - amount };
+              if (r.categoryId === newCategoryId) return { ...r, spentCents: r.spentCents + amount };
+              return r;
+            }));
           }}
         />
       )}

@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String },
   upApiKey: { type: String },
   googleId: { type: String, sparse: true },
+  email: { type: String, sparse: true },
+  otp: { type: String },
+  otpExpiry: { type: Date },
 });
 
 const User = mongoose.model("User", userSchema);

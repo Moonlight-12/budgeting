@@ -4,6 +4,7 @@ import { Button } from "@/src/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/src/components/ui/field";
 import { Input } from "@/src/components/ui/input";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 declare global {
   interface Window {
@@ -137,6 +138,13 @@ export default function SigninForm() {
       <Button className="w-full" type="submit">
         Submit
       </Button>
+
+      <p className="text-center text-sm text-zinc-500 mt-4">
+        Don&apos;t have an account?{" "}
+        <Link href="/auth/signup" className="text-zinc-900 font-medium hover:underline">
+          Register
+        </Link>
+      </p>
 
       {showGoogle && (
         <>

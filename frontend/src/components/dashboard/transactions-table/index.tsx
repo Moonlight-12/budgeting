@@ -40,11 +40,13 @@ function getDate(txn: Transaction) {
 }
 
 export default function TransactionsTable() {
+  const now = new Date();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
   useEffect(() => {
     fetch("/api/transactions/all")
@@ -55,14 +57,21 @@ export default function TransactionsTable() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return transactions;
-    const q = search.toLowerCase();
-    return transactions.filter(
-      (t) =>
-        t.description?.toLowerCase().includes(q) ||
-        (t.upCategoryId ?? "").toLowerCase().includes(q)
-    );
-  }, [transactions, search]);
+    const [year, month] = selectedMonth.split("-").map(Number);
+    let result = transactions.filter((t) => {
+      const d = new Date(t.transactionDate ?? t.settleDate ?? "");
+      return d.getFullYear() === year && d.getMonth() + 1 === month;
+    });
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.description?.toLowerCase().includes(q) ||
+          (t.upCategoryId ?? "").toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [transactions, search, selectedMonth]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -76,6 +85,13 @@ export default function TransactionsTable() {
     <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
       <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-white/8 flex-wrap">
         <h2 className="text-sm font-semibold text-white">All Transactions</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => { setSelectedMonth(e.target.value); setPage(1); }}
+          className="bg-zinc-800 border border-white/8 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-white/20"
+        />
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
@@ -85,6 +101,7 @@ export default function TransactionsTable() {
             onChange={(e) => handleSearch(e.target.value)}
             className="bg-zinc-800 border border-white/8 rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/20 w-52"
           />
+        </div>
         </div>
       </div>
 

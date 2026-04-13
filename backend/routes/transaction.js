@@ -152,6 +152,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
     const upApiKey = user?.upApiKey || process.env.UP_API_KEY;
+    console.log("[sync] token source:", user?.upApiKey ? "user DB" : "env fallback", "| key prefix:", upApiKey?.slice(0, 12));
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
     }
@@ -166,6 +167,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
       headers: { Authorization: `Bearer ${upApiKey}` },
     });
     const accountsData = await accountsResponse.json();
+    console.log("[sync] accounts HTTP status:", accountsResponse.status, "| raw:", JSON.stringify(accountsData).slice(0, 200));
     const availableAccounts = accountsData.data?.map((a) => ({
       id: a.id,
       displayName: a.attributes?.displayName,
@@ -203,6 +205,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
         headers: { Authorization: `Bearer ${upApiKey}` },
       });
       const data = await response.json();
+      console.log("[sync] fetch", nextUrl, "| status:", response.status, "| count:", data.data?.length, "| error:", data.errors?.[0]?.title);
 
       for (const tsn of data.data) {
         seenTransactionIds.add(tsn.id);
@@ -254,6 +257,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
       results.deleted = deleted.deletedCount;
     }
 
+    console.log("[sync] results:", results);
     res.json({ message: "Sync Complete", ...results });
   } catch (error) {
     console.error("Error fetching transactions from Up API:", error);

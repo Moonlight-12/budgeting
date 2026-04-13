@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RefreshCw, Target, Tags, Settings2, Link2, Link2Off, LogOut } from "lucide-react";
+import { RefreshCw, Target, Tags, Settings2, Link2, Link2Off, LogOut, User } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import dynamic from "next/dynamic";
@@ -240,6 +241,13 @@ export default function Dashboard() {
             Categories
           </Button>
 
+          <Link href="/profile">
+            <Button size="sm" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              <User size={14} className="mr-1.5" />
+              Profile
+            </Button>
+          </Link>
+
           <Button
             size="sm"
             variant="ghost"
@@ -277,6 +285,7 @@ export default function Dashboard() {
       {showCategoryManager && (
         <CategoryManager onClose={() => setShowCategoryManager(false)} />
       )}
+
     </main>
   );
 }
