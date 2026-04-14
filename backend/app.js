@@ -12,7 +12,7 @@ const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
 connectDB();
 
 // Security headers
-app.use(helmet());
+app.use(helmet({ crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } }));
 
 app.use(cors({
   origin: function (origin, callback) {
