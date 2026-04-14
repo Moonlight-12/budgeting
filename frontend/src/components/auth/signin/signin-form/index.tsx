@@ -23,6 +23,7 @@ export default function SigninForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleCredential = useCallback(async (response: { credential: string }) => {
@@ -85,6 +86,7 @@ export default function SigninForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
       const response = await fetch("/api/auth/signin", {
         method: "POST",
@@ -101,6 +103,8 @@ export default function SigninForm() {
       window.location.href = "/dashboard";
     } catch {
       setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -135,8 +139,8 @@ export default function SigninForm() {
         <FieldLabel className="text-red-500">{error}</FieldLabel>
       </Field>
 
-      <Button className="w-full" type="submit">
-        Submit
+      <Button className="w-full" type="submit" disabled={loading}>
+        {loading ? "Signing in..." : "Submit"}
       </Button>
 
       <p className="text-center text-sm text-zinc-500 mt-4">

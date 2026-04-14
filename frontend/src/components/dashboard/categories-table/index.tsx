@@ -396,7 +396,7 @@ export default function CategoriesTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/5">
-              <th className="text-left px-5 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
+              <th className="text-left px-5 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider sticky left-0 bg-zinc-900 z-10">
                 Category
               </th>
               <th className="text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
@@ -446,7 +446,7 @@ export default function CategoriesTable() {
                     onClick={() => setSelectedRow(row)}
                     className="border-b border-white/5 hover:bg-white/2 transition-colors cursor-pointer"
                   >
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 sticky left-0 bg-zinc-900 z-10">
                       <div className="flex items-center gap-2.5">
                         <span
                           className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -537,7 +537,7 @@ export default function CategoriesTable() {
           {!loading && rows.length > 0 && (
             <tfoot>
               <tr className="border-t border-white/10 bg-white/[0.02]">
-                <td className="px-5 py-3.5">
+                <td className="px-5 py-3.5 sticky left-0 bg-zinc-900 z-10">
                   <span className="text-white font-semibold text-xs uppercase tracking-wider">Total</span>
                 </td>
                 <td className="px-4 py-3.5 text-right text-zinc-300 font-semibold">
