@@ -11,6 +11,15 @@ const { seedCategories } = require("../utils/seedCategories");
 router.post("/signup", async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || typeof username !== "string" || username.trim().length < 3 || username.trim().length > 30) {
+      return res.status(400).json({ error: "Username must be 3-30 characters" });
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+      return res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" });
+    }
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
     const user = await User.findOne({ username });
     if (user) {
       return res.status(409).json({ error: "Username already exists" });
@@ -36,6 +45,9 @@ router.post("/signup", async (req, res) => {
 router.post("/signin", async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
 
     const user = await User.findOne({ username });
     if (!user) {
@@ -94,6 +106,12 @@ router.post("/signin", async (req, res) => {
 router.post("/change-password", authMiddleware, async (req, res) => {
   try {
     const { password, newPassword } = req.body;
+    if (!password || !newPassword) {
+      return res.status(400).json({ error: "Current password and new password are required" });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters" });
+    }
     const userId = req.user.userId;
 
     const user = await User.findOne({ _id: userId });

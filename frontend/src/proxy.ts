@@ -5,7 +5,7 @@ export function proxy(request: NextRequest) {
   const accessToken = request.cookies.get("accessToken");
 
   // Protected routes
-  const protectedPaths = ["/dashboard"];
+  const protectedPaths = ["/dashboard", "/profile"];
   const isProtectedPath = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -33,6 +33,7 @@ export const config = {
   matcher: [
     // Only match page routes, not API routes
     "/dashboard/:path*",
+    "/profile/:path*",
     "/(auth)/:path*",
   ],
 };

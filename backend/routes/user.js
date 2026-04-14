@@ -27,8 +27,15 @@ router.get("/profile", authMiddleware, async (req, res) => {
 router.post("/change-username", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-    if (!req.body.newUsername) {
+    if (!req.body.newUsername || typeof req.body.newUsername !== "string") {
       return res.status(400).json({ message: "New Username Required" });
+    }
+    const trimmed = req.body.newUsername.trim();
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      return res.status(400).json({ message: "Username must be 3-30 characters" });
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+      return res.status(400).json({ message: "Username can only contain letters, numbers, and underscores" });
     }
     const user = await User.findOne({ _id: userId });
 

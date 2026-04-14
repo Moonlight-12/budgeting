@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 declare global {
@@ -38,6 +38,17 @@ export default function ProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   useEffect(() => {
     fetch("/api/users/profile")
@@ -151,6 +162,46 @@ export default function ProfilePage() {
     }
   };
 
+  const handleChangePassword = async () => {
+    setPwError("");
+    setPwSuccess("");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwError("All fields are required");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwError("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("New passwords do not match");
+      return;
+    }
+
+    setPwSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPwSuccess("Password changed. Signing out…");
+        await fetch("/api/auth/signout", { method: "POST" });
+        window.location.href = "/auth/signin";
+        return;
+      } else {
+        setPwError(data.error || data.message || "Failed to change password");
+      }
+    } catch {
+      setPwError("Network error");
+    } finally {
+      setPwSubmitting(false);
+    }
+  };
+
   const openModal = () => {
     setStep("input");
     setEmail("");
@@ -244,6 +295,87 @@ export default function ProfilePage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Change Password */}
+      <h2 className="text-base font-semibold text-white mt-8 mb-4 flex items-center gap-2">
+        <Lock size={16} className="text-zinc-400" />
+        Change Password
+      </h2>
+
+      <div className="bg-zinc-900 border border-white/8 rounded-2xl p-5 space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs text-zinc-400">Current password</label>
+          <div className="relative">
+            <input
+              type={showCurrentPw ? "text" : "password"}
+              value={currentPassword}
+              onChange={(e) => { setCurrentPassword(e.target.value); setPwError(""); setPwSuccess(""); }}
+              placeholder="Enter current password"
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 pr-10 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrentPw(!showCurrentPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
+              {showCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-zinc-400">New password</label>
+          <div className="relative">
+            <input
+              type={showNewPw ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setPwError(""); setPwSuccess(""); }}
+              placeholder="Enter new password"
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 pr-10 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNewPw(!showNewPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
+              {showNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-zinc-400">Confirm new password</label>
+          <div className="relative">
+            <input
+              type={showConfirmPw ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); setPwError(""); setPwSuccess(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }}
+              placeholder="Re-enter new password"
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 pr-10 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPw(!showConfirmPw)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
+              {showConfirmPw ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        {pwError && <p className="text-xs text-rose-400">{pwError}</p>}
+        {pwSuccess && <p className="text-xs text-emerald-400">{pwSuccess}</p>}
+
+        <button
+          onClick={handleChangePassword}
+          disabled={!currentPassword || !newPassword || !confirmPassword || pwSubmitting}
+          className="w-full py-2 rounded-lg bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          {pwSubmitting && <Loader2 size={14} className="animate-spin" />}
+          Update password
+        </button>
       </div>
 
       {/* Link modal */}
