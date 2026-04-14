@@ -136,6 +136,72 @@ router.post("/change-password", authMiddleware, async (req, res) => {
   }
 });
 
+// forgot password — sends OTP to linked email
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    // Don't reveal whether the email exists
+    if (!user) return res.json({ message: "If that email is registered, you will receive a code" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    const nodemailer = require("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: "Password reset code",
+      text: `Your password reset code is: ${otp}\n\nThis code expires in 10 minutes.`,
+      html: `<p>Your password reset code is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`,
+    });
+
+    res.json({ message: "If that email is registered, you will receive a code" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// reset password — verify OTP then set new password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: "Email, code, and new password are required" });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user || user.otp !== otp) {
+      return res.status(400).json({ error: "Invalid code" });
+    }
+    if (!user.otpExpiry || user.otpExpiry < new Date()) {
+      return res.status(400).json({ error: "Code has expired" });
+    }
+    user.password = await bcrypt.hash(newPassword, saltRounds);
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+    res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.post("/refresh", async (req, res) => {
   const token = req.cookies.refreshToken;
 

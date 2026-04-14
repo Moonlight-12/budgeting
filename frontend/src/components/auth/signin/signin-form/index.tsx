@@ -143,6 +143,12 @@ export default function SigninForm() {
         {loading ? "Signing in..." : "Submit"}
       </Button>
 
+      <p className="text-right text-sm mt-2">
+        <Link href="/auth/forgot-password" className="text-zinc-500 hover:underline text-xs">
+          Forgot password?
+        </Link>
+      </p>
+
       <p className="text-center text-sm text-zinc-500 mt-4">
         Don&apos;t have an account?{" "}
         <Link href="/auth/signup" className="text-zinc-900 font-medium hover:underline">
