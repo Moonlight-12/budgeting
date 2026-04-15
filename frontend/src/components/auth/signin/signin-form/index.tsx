@@ -52,24 +52,33 @@ export default function SigninForm() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId) return;
 
-    const existingScript = document.getElementById("google-gsi");
-    if (existingScript) {
-      // Script already loaded — defer so the button div is in the DOM
+    function tryInit() {
       if (window.google) {
-        setTimeout(() => initGoogle(clientId), 0);
+        initGoogle(clientId!);
       } else {
-        existingScript.addEventListener("load", () => initGoogle(clientId), { once: true });
+        const existingScript = document.getElementById("google-gsi");
+        if (existingScript) {
+          existingScript.addEventListener("load", () => initGoogle(clientId!), { once: true });
+        } else {
+          const script = document.createElement("script");
+          script.id = "google-gsi";
+          script.src = "https://accounts.google.com/gsi/client";
+          script.async = true;
+          script.defer = true;
+          script.onload = () => initGoogle(clientId!);
+          document.body.appendChild(script);
+        }
       }
-      return;
     }
 
-    const script = document.createElement("script");
-    script.id = "google-gsi";
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => initGoogle(clientId);
-    document.body.appendChild(script);
+    tryInit();
+
+    // Re-init when page is restored from bfcache (back navigation in native apps)
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setTimeout(() => initGoogle(clientId!), 0);
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, [handleGoogleCredential]);
 
   function initGoogle(clientId: string) {
