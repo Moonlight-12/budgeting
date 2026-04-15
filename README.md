@@ -30,9 +30,10 @@ A personal budgeting app connected to the **Up Bank API** (Australian neobank). 
 
 - **Up Bank Sync** — Automatically sync transactions from your Up Bank spending account on every login
 - **Category Tracking** — Spending breakdown by category with budget vs actual comparison across billing periods
-- **Manual Transactions** — Add transactions manually (income or expense)
+- **Manual Transactions** — Add transactions manually (income or expense) with IDR or AUD currency support
 - **Budget Management** — Set a monthly spending target, track progress with a visual gauge
 - **Savings Allocation** — Save remaining budget and allocate it to specific categories
+- **Multi-currency** — IDR and AUD supported; IDR input uses thousands (type `50` → `Rp50.000`)
 - **Transaction History** — Search and filter transactions by month
 - **Google OAuth** — Sign in with Google or link your Google account
 - **Password Reset** — OTP-based password reset via email
@@ -142,8 +143,8 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=<google-oauth-client-id>
 | POST | `/api/v1/auth/google` | Google OAuth |
 | POST | `/api/v1/auth/forgot-password` | Send reset OTP |
 | POST | `/api/v1/auth/reset-password` | Reset password |
-| POST | `/api/v1/transactions/sync` | Sync from Up Bank |
-| POST | `/api/v1/transactions/manual` | Add manual transaction |
+| POST | `/api/v1/transactions/sync` | Sync from Up Bank (auto-runs on login) |
+| POST | `/api/v1/transactions/manual` | Add manual transaction (IDR or AUD) |
 | GET | `/api/v1/transactions/all` | Get all transactions |
 | GET | `/api/v1/transactions/categories-summary` | Spending by category |
 | GET | `/api/v1/categories` | Get categories |
