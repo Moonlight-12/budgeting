@@ -3,6 +3,8 @@
 import { CircularProgress } from "@heroui/progress";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useCurrency } from "@/src/contexts/currency-context";
+import { toDisplayValue, fmtCurrency } from "@/src/lib/currency";
 
 interface Transaction {
   _id: string;
@@ -13,13 +15,6 @@ interface Transaction {
   categoryId: string;
 }
 
-function fmtAmount(cents: number) {
-  const sign = cents < 0 ? "-" : "+";
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function fmtDate(raw: string | null) {
   if (!raw) return "—";
@@ -38,6 +33,9 @@ function SpendingModal({
   spending: number;
   budget: number;
 }) {
+  const { preferredCurrency } = useCurrency();
+  const fmtAmount = (cents: number) => fmtCurrency(toDisplayValue(cents, "AUD", preferredCurrency), preferredCurrency, true);
+  const fmtVal = (audCents: number) => fmtCurrency(toDisplayValue(audCents, "AUD", preferredCurrency), preferredCurrency);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,7 +83,7 @@ function SpendingModal({
               Current Period Spending
             </h3>
             <p className="text-xs text-zinc-500 mt-0.5">
-              ${spending.toFixed(0)} spent of ${budget} budget
+              {fmtVal(spending)} spent of {fmtVal(budget * 100)} budget
             </p>
           </div>
           <button
@@ -151,7 +149,7 @@ function SpendingModal({
           <div className="px-5 py-3 border-t border-white/8 flex items-center justify-between text-xs text-zinc-500 shrink-0">
             <span>{expenses.length} transactions</span>
             <span className="text-white font-medium">
-              Total: ${spending.toFixed(2)}
+              Total: {fmtVal(spending)}
             </span>
           </div>
         )}
@@ -161,6 +159,8 @@ function SpendingModal({
 }
 
 export default function Chart() {
+  const { preferredCurrency } = useCurrency();
+  const fmtVal = (audCents: number) => fmtCurrency(toDisplayValue(audCents, "AUD", preferredCurrency), preferredCurrency);
   const [spending, setSpending] = useState(0);
   const [budget, setBudget] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -201,14 +201,14 @@ export default function Chart() {
           }}
           showValueLabel={true}
           value={loading ? 0 : percentage}
-          valueLabel={loading ? "..." : `$${remaining.toFixed(0)}`}
-          label={loading ? "Loading..." : `left of $${budget}`}
+          valueLabel={loading ? "..." : fmtVal(remaining * 100)}
+          label={loading ? "Loading..." : `left of ${fmtVal(budget * 100)}`}
         />
         {!loading && (
           <p className="text-xs text-center">
             {isOverBudget ? (
               <span className="text-rose-400">
-                Over by ${Math.abs(remaining).toFixed(0)}
+                Over by {fmtVal(Math.abs(remaining) * 100)}
               </span>
             ) : (
               <span className="text-zinc-500 group-hover:text-zinc-400 transition-colors">
