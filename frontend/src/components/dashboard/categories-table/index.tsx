@@ -38,6 +38,7 @@ interface Transaction {
   categoryId: string;
   upCategoryId: string | null;
   status: string;
+  currency?: string;
 }
 
 interface Allocation {
@@ -49,8 +50,8 @@ interface Allocation {
 function useFormatters() {
   const { preferredCurrency } = useCurrency();
   return {
-    fmt: (cents: number) => fmtCurrency(cents, "AUD", preferredCurrency),
-    fmtFull: (cents: number) => fmtCurrency(cents, "AUD", preferredCurrency, true),
+    fmt: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency),
+    fmtFull: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency, true),
   };
 }
 
@@ -195,7 +196,7 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionM
                       <td className="px-5 py-3 text-zinc-400 whitespace-nowrap text-xs">{getDate(txn)}</td>
                       <td className="px-4 py-3 text-white truncate max-w-[240px]">{txn.description}</td>
                       <td className={`px-5 py-3 text-right font-medium tabular-nums whitespace-nowrap ${isNegative ? "text-rose-400" : "text-emerald-400"}`}>
-                        {fmtFull(txn.valueInCents)}
+                        {fmtFull(txn.valueInCents, txn.currency ?? "AUD")}
                       </td>
                     </tr>
                   );
