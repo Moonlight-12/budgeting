@@ -1,6 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+async function proxyDelete(backendUrl: string, accessToken: string | undefined, id: string) {
+  return fetch(`${backendUrl}/api/v1/transactions/${id}`, {
+    method: "DELETE",
+    headers: { Cookie: `accessToken=${accessToken}` },
+  });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const backendUrl = process.env.BACKEND_URL;
+    const cookieStore = await cookies();
+    let accessToken = cookieStore.get("accessToken")?.value;
+    const refreshToken = cookieStore.get("refreshToken")?.value;
+
+    if (!backendUrl) return NextResponse.json({ message: "Server configuration error" }, { status: 500 });
+
+    let response = await proxyDelete(backendUrl, accessToken, id);
+
+    if (response.status === 403 && refreshToken) {
+      const refreshResponse = await fetch(`${backendUrl}/api/v1/auth/refresh`, {
+        method: "POST",
+        headers: { Cookie: `refreshToken=${refreshToken}` },
+      });
+      if (refreshResponse.ok) {
+        const setCookieHeader = refreshResponse.headers.get("set-cookie");
+        const newAccessToken = setCookieHeader?.match(/accessToken=([^;]+)/)?.[1];
+        if (newAccessToken) {
+          response = await proxyDelete(backendUrl, newAccessToken, id);
+          const data = await response.json();
+          const nextResponse = NextResponse.json(data, { status: response.status });
+          if (setCookieHeader) {
+            setCookieHeader.split(/,(?=\s*\w+=)/).forEach((c) => nextResponse.headers.append("set-cookie", c.trim()));
+          }
+          return nextResponse;
+        }
+      }
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error("Transaction DELETE error:", error);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}
+
 async function proxyPatch(
   backendUrl: string,
   accessToken: string | undefined,

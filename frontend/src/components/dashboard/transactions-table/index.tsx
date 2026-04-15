@@ -393,6 +393,10 @@ export default function TransactionsTable() {
             );
             setSelectedTxn(null);
           }}
+          onDelete={(id) => {
+            setTransactions((prev) => prev.filter((t) => t._id !== id));
+            setSelectedTxn(null);
+          }}
         />
       )}
 

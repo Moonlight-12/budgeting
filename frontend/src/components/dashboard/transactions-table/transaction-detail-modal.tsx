@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Calendar, Tag, DollarSign, ArrowUpDown, Loader2 } from "lucide-react";
+import { X, Calendar, Tag, DollarSign, ArrowUpDown, Loader2, Trash2 } from "lucide-react";
 
 interface Transaction {
   _id: string;
@@ -26,6 +26,7 @@ interface Props {
   transaction: Transaction;
   onClose: () => void;
   onUpdate: (updated: Transaction) => void;
+  onDelete?: (id: string) => void;
 }
 
 function prettify(id: string) {
@@ -68,12 +69,15 @@ export default function TransactionDetailModal({
   transaction,
   onClose,
   onUpdate,
+  onDelete,
 }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     transaction.categoryId
   );
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [loadingCats, setLoadingCats] = useState(true);
 
   useEffect(() => {
@@ -109,6 +113,21 @@ export default function TransactionDetailModal({
       console.error("Failed to update category:", e);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/transaction/${transaction._id}`, { method: "DELETE" });
+      if (res.ok) {
+        onDelete?.(transaction._id);
+        onClose();
+      }
+    } catch (e) {
+      console.error("Failed to delete transaction:", e);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -259,21 +278,48 @@ export default function TransactionDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-white/8">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanged || saving}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            Save
-          </button>
+        <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-white/8">
+          {/* Delete */}
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-400">Delete?</span>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-500 text-white hover:bg-rose-400 disabled:opacity-50 transition-colors flex items-center gap-1"
+              >
+                {deleting ? <Loader2 size={12} className="animate-spin" /> : null}
+                Yes, delete
+              </button>
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-1.5 text-zinc-600 hover:text-rose-400 hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanged || saving}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
