@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2, Lock, Eye, EyeOff, Coins } from "lucide-react";
+import { useCurrency } from "@/src/contexts/currency-context";
 import Link from "next/link";
 
 declare global {
@@ -27,6 +28,7 @@ interface UserProfile {
 type ModalStep = "input" | "otp";
 
 export default function ProfilePage() {
+  const { preferredCurrency, setCurrency } = useCurrency();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -294,6 +296,34 @@ export default function ProfilePage() {
               Link
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Display Currency */}
+      <h2 className="text-base font-semibold text-white mt-8 mb-4 flex items-center gap-2">
+        <Coins size={16} className="text-zinc-400" />
+        Display Currency
+      </h2>
+      <div className="bg-zinc-900 border border-white/8 rounded-2xl px-5 py-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-white font-medium">
+            {preferredCurrency === "IDR" ? "Indonesian Rupiah (IDR)" : "Australian Dollar (AUD)"}
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">1 AUD = 11,000 IDR</p>
+        </div>
+        <div className="flex rounded-lg overflow-hidden border border-white/10">
+          <button
+            onClick={() => setCurrency("AUD")}
+            className={`px-4 py-1.5 text-xs font-medium transition-colors ${preferredCurrency === "AUD" ? "bg-zinc-600 text-white" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+          >
+            AUD
+          </button>
+          <button
+            onClick={() => setCurrency("IDR")}
+            className={`px-4 py-1.5 text-xs font-medium transition-colors ${preferredCurrency === "IDR" ? "bg-zinc-600 text-white" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
+          >
+            IDR
+          </button>
         </div>
       </div>
 

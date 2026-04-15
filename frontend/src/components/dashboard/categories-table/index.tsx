@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { TrendingDown, TrendingUp, Minus, X, Pencil, Check, PiggyBank, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import TransactionDetailModal from "@/src/components/dashboard/transactions-table/transaction-detail-modal";
+import { useCurrency } from "@/src/contexts/currency-context";
+import { fmt as fmtCurrency } from "@/src/lib/currency";
 
 interface Category {
   _id: string;
@@ -43,19 +45,13 @@ interface Allocation {
   amount: number;
 }
 
-function fmt(cents: number) {
-  return `$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
-
-function fmtFull(cents: number) {
-  const sign = cents < 0 ? "-" : "+";
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+// All Up Bank / budget data is AUD cents — formatters convert to preferred display currency
+function useFormatters() {
+  const { preferredCurrency } = useCurrency();
+  return {
+    fmt: (cents: number) => fmtCurrency(cents, "AUD", preferredCurrency),
+    fmtFull: (cents: number) => fmtCurrency(cents, "AUD", preferredCurrency, true),
+  };
 }
 
 function getDate(txn: Transaction) {
@@ -65,6 +61,7 @@ function getDate(txn: Transaction) {
 }
 
 function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionMoved, periodFrom, periodTo }: { row: Row; onClose: () => void; onBudgetSaved: (newBudgetCents: number) => void; onTransactionMoved: (valueInCents: number, newCategoryId: string) => void; periodFrom: string; periodTo: string }) {
+  const { fmtFull } = useFormatters();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
@@ -228,6 +225,7 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionM
 }
 
 export default function CategoriesTable() {
+  const { fmt } = useFormatters();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodLabel, setPeriodLabel] = useState("");

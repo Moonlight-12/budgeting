@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { TrendingDown, TrendingUp, ArrowLeftRight, Zap } from "lucide-react";
+import { useCurrency } from "@/src/contexts/currency-context";
+import { fmt } from "@/src/lib/currency";
 
 interface SummaryData {
   totalSpending: number;
@@ -11,13 +13,13 @@ interface SummaryData {
   count: number;
 }
 
-function fmt(cents: number) {
-  return `$${(Math.abs(cents) / 100).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 export default function SummaryCards() {
+  const { preferredCurrency } = useCurrency();
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Summary data from Up Bank is always AUD cents
+  const f = (cents: number) => fmt(cents, "AUD", preferredCurrency);
 
   useEffect(() => {
     const utcOffset = new Date().getTimezoneOffset();
@@ -31,7 +33,7 @@ export default function SummaryCards() {
   const cards = [
     {
       label: "Total Spent",
-      value: loading ? "—" : fmt(data?.totalSpending ?? 0),
+      value: loading ? "—" : f(data?.totalSpending ?? 0),
       icon: TrendingDown,
       iconColor: "text-rose-400",
       bgColor: "bg-rose-500/10",
@@ -39,7 +41,7 @@ export default function SummaryCards() {
     },
     {
       label: "Total Income",
-      value: loading ? "—" : fmt(data?.totalIncome ?? 0),
+      value: loading ? "—" : f(data?.totalIncome ?? 0),
       icon: TrendingUp,
       iconColor: "text-emerald-400",
       bgColor: "bg-emerald-500/10",
@@ -47,7 +49,7 @@ export default function SummaryCards() {
     },
     {
       label: "Avg Transaction",
-      value: loading ? "—" : fmt(data?.avgTransaction ?? 0),
+      value: loading ? "—" : f(data?.avgTransaction ?? 0),
       icon: ArrowLeftRight,
       iconColor: "text-violet-400",
       bgColor: "bg-violet-500/10",
@@ -55,7 +57,7 @@ export default function SummaryCards() {
     },
     {
       label: "Biggest Expense",
-      value: loading ? "—" : fmt(data?.biggestExpense ?? 0),
+      value: loading ? "—" : f(data?.biggestExpense ?? 0),
       icon: Zap,
       iconColor: "text-amber-400",
       bgColor: "bg-amber-500/10",

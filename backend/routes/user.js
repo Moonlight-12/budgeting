@@ -7,12 +7,27 @@ const authMiddleware = require("../middleware/auth");
 // router.get('/profile', ...);
 // router.put('/profile', ...);
 
+// PUT: update preferred display currency
+router.put("/preference", authMiddleware, async (req, res) => {
+  try {
+    const { preferredCurrency } = req.body;
+    if (!["AUD", "IDR"].includes(preferredCurrency)) {
+      return res.status(400).json({ message: "Invalid currency. Must be AUD or IDR" });
+    }
+    await User.findByIdAndUpdate(req.user.userId, { preferredCurrency });
+    res.json({ message: "Preference updated", preferredCurrency });
+  } catch (error) {
+    console.error("Error updating preference:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 //get user information
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const user = await User.findById(userId).select("-password -refreshToken -otp -otpExpiry");
+    const user = await User.findById(userId).select("-password -refreshToken -otp -otpExpiry -upApiKey");
 
     if (!user) {
       return res.status(404).json({ message: "User Not Found" });

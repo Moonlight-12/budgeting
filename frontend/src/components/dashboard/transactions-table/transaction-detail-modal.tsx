@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { X, Calendar, Tag, DollarSign, ArrowUpDown, Loader2, Trash2 } from "lucide-react";
+import { useCurrency } from "@/src/contexts/currency-context";
+import { fmt as fmtLib } from "@/src/lib/currency";
 
 interface Transaction {
   _id: string;
@@ -36,16 +38,6 @@ function prettify(id: string) {
     .join(" ");
 }
 
-function fmtAmount(cents: number, currency = "AUD") {
-  const sign = cents < 0 ? "-" : "+";
-  if (currency === "IDR") {
-    return `${sign}Rp${Math.abs(cents).toLocaleString("id-ID")}`;
-  }
-  return `${sign}A$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function fmtDate(raw: string | null) {
   if (!raw) return "—";
@@ -71,6 +63,9 @@ export default function TransactionDetailModal({
   onUpdate,
   onDelete,
 }: Props) {
+  const { preferredCurrency } = useCurrency();
+  const fmtAmount = (cents: number, txnCurrency = "AUD") =>
+    fmtLib(cents, txnCurrency, preferredCurrency, true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     transaction.categoryId
@@ -172,7 +167,7 @@ export default function TransactionDetailModal({
               isNegative ? "text-rose-400" : "text-emerald-400"
             }`}
           >
-            {fmtAmount(transaction.valueInCents, transaction.currency)}
+            {fmtAmount(transaction.valueInCents, transaction.currency ?? "AUD")}
           </p>
           <p className="mt-1 text-sm text-zinc-400 max-w-xs mx-auto truncate">
             {transaction.description}

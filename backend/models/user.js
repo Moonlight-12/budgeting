@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, sparse: true },
   otp: { type: String },
   otpExpiry: { type: Date },
+  preferredCurrency: { type: String, default: "AUD", enum: ["AUD", "IDR"] },
 });
 
 const User = mongoose.model("User", userSchema);

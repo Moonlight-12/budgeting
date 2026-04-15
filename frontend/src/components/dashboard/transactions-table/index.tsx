@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import TransactionDetailModal from "./transaction-detail-modal";
+import { useCurrency } from "@/src/contexts/currency-context";
+import { fmt as fmtLib } from "@/src/lib/currency";
 
 interface Transaction {
   _id: string;
@@ -22,15 +24,10 @@ function prettify(id: string) {
 
 const PAGE_SIZE = 20;
 
-function fmt(cents: number, currency = "AUD") {
-  const sign = cents < 0 ? "-" : "+";
-  if (currency === "IDR") {
-    return `${sign}Rp${Math.abs(cents).toLocaleString("id-ID")}`;
-  }
-  return `${sign}A$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+function useFmt() {
+  const { preferredCurrency } = useCurrency();
+  return (cents: number, txnCurrency = "AUD") =>
+    fmtLib(cents, txnCurrency, preferredCurrency, true);
 }
 
 function getDate(txn: Transaction) {
@@ -207,6 +204,7 @@ export default function TransactionsTable() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const fmt = useFmt();
   const [page, setPage] = useState(1);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -349,7 +347,7 @@ export default function TransactionsTable() {
                         isNegative ? "text-rose-400" : "text-emerald-400"
                       }`}
                     >
-                      {fmt(txn.valueInCents, txn.currency)}
+                      {fmt(txn.valueInCents, txn.currency ?? "AUD")}
                     </td>
                   </tr>
                 );
