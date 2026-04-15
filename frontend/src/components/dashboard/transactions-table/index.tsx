@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import TransactionDetailModal from "./transaction-detail-modal";
 
 interface Transaction {
@@ -39,6 +39,135 @@ function getDate(txn: Transaction) {
   });
 }
 
+interface Category {
+  categoryId: string;
+  category: string;
+}
+
+function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (txn: Transaction) => void }) {
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [isExpense, setIsExpense] = useState(true);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [categoryId, setCategoryId] = useState("other");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((data) => setCategories(data.categories ?? []))
+      .catch(() => {});
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const parsed = parseFloat(amount);
+    if (!description.trim()) { setError("Description is required"); return; }
+    if (isNaN(parsed) || parsed <= 0) { setError("Enter a valid amount"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/transactions/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: description.trim(),
+          amount: isExpense ? -parsed : parsed,
+          date,
+          categoryId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Failed to add transaction"); return; }
+      onAdded(data.transaction);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
+          <h2 className="text-white font-semibold text-sm">Add Transaction</h2>
+          <button onClick={onClose} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Description</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Grocery store"
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-zinc-400 mb-1 block">Amount</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25 tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 mb-1 block">Type</label>
+              <div className="flex rounded-lg overflow-hidden border border-white/10">
+                <button type="button" onClick={() => setIsExpense(true)} className={`px-3 py-2 text-xs font-medium transition-colors ${isExpense ? "bg-rose-500/20 text-rose-400" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>Expense</button>
+                <button type="button" onClick={() => setIsExpense(false)} className={`px-3 py-2 text-xs font-medium transition-colors ${!isExpense ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>Income</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Category</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25"
+            >
+              <option value="other">Other</option>
+              {categories.map((c) => (
+                <option key={c.categoryId} value={c.categoryId}>{c.category}</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="text-xs text-rose-400">{error}</p>}
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-2 rounded-lg bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Adding..." : "Add Transaction"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function TransactionsTable() {
   const now = new Date();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -46,6 +175,7 @@ export default function TransactionsTable() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
   useEffect(() => {
@@ -86,6 +216,13 @@ export default function TransactionsTable() {
       <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-white/8 flex-wrap">
         <h2 className="text-sm font-semibold text-white">All Transactions</h2>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 text-xs font-medium hover:bg-zinc-100 transition-colors"
+          >
+            <Plus size={13} />
+            Add
+          </button>
         <input
           type="month"
           value={selectedMonth}
@@ -221,6 +358,16 @@ export default function TransactionsTable() {
               prev.map((t) => (t._id === updated._id ? { ...t, categoryId: updated.categoryId } : t))
             );
             setSelectedTxn(null);
+          }}
+        />
+      )}
+
+      {showAddModal && (
+        <AddTransactionModal
+          onClose={() => setShowAddModal(false)}
+          onAdded={(txn) => {
+            setTransactions((prev) => [txn, ...prev]);
+            setShowAddModal(false);
           }}
         />
       )}

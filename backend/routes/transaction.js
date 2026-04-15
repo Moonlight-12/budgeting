@@ -310,6 +310,38 @@ router.get("/up-categories", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/manual", authMiddleware, async (req, res) => {
+  try {
+    const { description, amount, date, categoryId } = req.body;
+    if (!description || typeof description !== "string" || !description.trim()) {
+      return res.status(400).json({ message: "Description is required" });
+    }
+    if (typeof amount !== "number" || isNaN(amount)) {
+      return res.status(400).json({ message: "Amount is required" });
+    }
+    if (!date) {
+      return res.status(400).json({ message: "Date is required" });
+    }
+    const valueInCents = Math.round(amount * 100);
+    const transactionId = `manual-${req.user.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const transaction = new Transaction({
+      userId: req.user.userId,
+      transactionId,
+      description: description.trim(),
+      valueInCents,
+      transactionDate: new Date(date),
+      categoryId: categoryId || "other",
+      status: "SETTLED",
+      currency: "AUD",
+    });
+    await transaction.save();
+    res.status(201).json({ message: "Transaction added", transaction });
+  } catch (error) {
+    console.error("Error adding manual transaction:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 router.get("/all", authMiddleware, async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.user.userId })
