@@ -12,6 +12,7 @@ interface Transaction {
   categoryId: string;
   upCategoryId: string | null;
   status: string;
+  currency?: string;
 }
 
 interface Category {
@@ -34,9 +35,12 @@ function prettify(id: string) {
     .join(" ");
 }
 
-function fmtAmount(cents: number) {
+function fmtAmount(cents: number, currency = "AUD") {
   const sign = cents < 0 ? "-" : "+";
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
+  if (currency === "IDR") {
+    return `${sign}Rp${Math.abs(cents).toLocaleString("id-ID")}`;
+  }
+  return `${sign}A$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -149,7 +153,7 @@ export default function TransactionDetailModal({
               isNegative ? "text-rose-400" : "text-emerald-400"
             }`}
           >
-            {fmtAmount(transaction.valueInCents)}
+            {fmtAmount(transaction.valueInCents, transaction.currency)}
           </p>
           <p className="mt-1 text-sm text-zinc-400 max-w-xs mx-auto truncate">
             {transaction.description}

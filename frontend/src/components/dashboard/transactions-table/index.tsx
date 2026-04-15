@@ -13,6 +13,7 @@ interface Transaction {
   categoryId: string;
   upCategoryId: string | null;
   status: string;
+  currency?: string;
 }
 
 function prettify(id: string) {
@@ -21,9 +22,12 @@ function prettify(id: string) {
 
 const PAGE_SIZE = 20;
 
-function fmt(cents: number) {
+function fmt(cents: number, currency = "AUD") {
   const sign = cents < 0 ? "-" : "+";
-  return `${sign}$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
+  if (currency === "IDR") {
+    return `${sign}Rp${Math.abs(cents).toLocaleString("id-ID")}`;
+  }
+  return `${sign}A$${(Math.abs(cents) / 100).toLocaleString("en-AU", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -47,12 +51,15 @@ interface Category {
 function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (txn: Transaction) => void }) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("IDR");
   const [isExpense, setIsExpense] = useState(true);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState("other");
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const isIDR = currency === "IDR";
 
   useEffect(() => {
     fetch("/api/categories")
@@ -69,6 +76,9 @@ function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdde
     const parsed = parseFloat(amount);
     if (!description.trim()) { setError("Description is required"); return; }
     if (isNaN(parsed) || parsed <= 0) { setError("Enter a valid amount"); return; }
+    // IDR: user types in thousands, multiply by 1000 before sending
+    const actualAmount = isIDR ? parsed * 1000 : parsed;
+    const signedAmount = isExpense ? -actualAmount : actualAmount;
     setSaving(true);
     try {
       const res = await fetch("/api/transactions/manual", {
@@ -76,9 +86,10 @@ function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdde
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: description.trim(),
-          amount: isExpense ? -parsed : parsed,
+          amount: signedAmount,
           date,
           categoryId,
+          currency,
         }),
       });
       const data = await res.json();
@@ -111,18 +122,40 @@ function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdde
               className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25"
             />
           </div>
+
+          {/* Currency selector */}
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Currency</label>
+            <div className="flex rounded-lg overflow-hidden border border-white/10">
+              <button type="button" onClick={() => setCurrency("IDR")} className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${isIDR ? "bg-zinc-600 text-white" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>IDR</button>
+              <button type="button" onClick={() => setCurrency("AUD")} className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${!isIDR ? "bg-zinc-600 text-white" : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"}`}>AUD</button>
+            </div>
+          </div>
+
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-zinc-400 mb-1 block">Amount</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25 tabular-nums"
-              />
+              <label className="text-xs text-zinc-400 mb-1 block">
+                Amount {isIDR ? <span className="text-zinc-500">(in thousands)</span> : ""}
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step={isIDR ? "1" : "0.01"}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={isIDR ? "e.g. 50" : "0.00"}
+                  className="w-full bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 pr-12 text-sm text-white focus:outline-none focus:border-white/25 tabular-nums"
+                />
+                {isIDR && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 pointer-events-none">,000</span>
+                )}
+              </div>
+              {isIDR && amount && !isNaN(parseFloat(amount)) && (
+                <p className="text-xs text-zinc-500 mt-1">
+                  = Rp{(parseFloat(amount) * 1000).toLocaleString("id-ID")}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs text-zinc-400 mb-1 block">Type</label>
@@ -132,6 +165,7 @@ function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdde
               </div>
             </div>
           </div>
+
           <div>
             <label className="text-xs text-zinc-400 mb-1 block">Date</label>
             <input
@@ -315,7 +349,7 @@ export default function TransactionsTable() {
                         isNegative ? "text-rose-400" : "text-emerald-400"
                       }`}
                     >
-                      {fmt(txn.valueInCents)}
+                      {fmt(txn.valueInCents, txn.currency)}
                     </td>
                   </tr>
                 );

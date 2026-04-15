@@ -312,7 +312,7 @@ router.get("/up-categories", authMiddleware, async (req, res) => {
 
 router.post("/manual", authMiddleware, async (req, res) => {
   try {
-    const { description, amount, date, categoryId } = req.body;
+    const { description, amount, date, categoryId, currency } = req.body;
     if (!description || typeof description !== "string" || !description.trim()) {
       return res.status(400).json({ message: "Description is required" });
     }
@@ -322,7 +322,9 @@ router.post("/manual", authMiddleware, async (req, res) => {
     if (!date) {
       return res.status(400).json({ message: "Date is required" });
     }
-    const valueInCents = Math.round(amount * 100);
+    const resolvedCurrency = currency === "IDR" ? "IDR" : "AUD";
+    // IDR has no subunits in practice — store as whole rupiah; AUD stored as cents
+    const valueInCents = resolvedCurrency === "IDR" ? Math.round(amount) : Math.round(amount * 100);
     const transactionId = `manual-${req.user.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const transaction = new Transaction({
       userId: req.user.userId,
@@ -332,7 +334,7 @@ router.post("/manual", authMiddleware, async (req, res) => {
       transactionDate: new Date(date),
       categoryId: categoryId || "other",
       status: "SETTLED",
-      currency: "AUD",
+      currency: resolvedCurrency,
     });
     await transaction.save();
     res.status(201).json({ message: "Transaction added", transaction });
