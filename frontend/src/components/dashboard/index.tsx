@@ -32,26 +32,23 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    handleSync(false);
+    handleSync(false, true);
   }, []);
 
-  const handleSync = async (full = false) => {
-    setSyncResult(null);
+  const handleSync = async (full = false, silent = false) => {
+    if (!silent) setSyncResult(null);
     try {
       const url = full ? "/api/transactions/sync?full=true" : "/api/transactions/sync";
       const response = await fetch(url, { method: "POST" });
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && !silent) {
         const parts = [`${data.saved} new`, `${data.skipped} skipped`];
         if (data.recategorized) parts.push(`${data.recategorized} recategorized`);
         setSyncResult(parts.join(" · "));
-        window.location.reload();
-      } else {
-        setSyncResult(data.message || "Sync failed");
       }
     } catch {
-      setSyncResult("Network error");
-    } finally {}
+      if (!silent) setSyncResult("Network error");
+    }
   };
 
   const handleRecategorize = async () => {
@@ -62,7 +59,6 @@ export default function Dashboard() {
       const data = await response.json();
       if (response.ok) {
         setSyncResult(`${data.updated} of ${data.total} recategorized`);
-        window.location.reload();
       } else {
         setSyncResult(data.message || "Recategorize failed");
       }
