@@ -33,7 +33,7 @@ A personal budgeting app connected to the **Up Bank API** (Australian neobank). 
 - **Manual Transactions** — Add transactions manually (income or expense) with IDR or AUD currency support
 - **Budget Management** — Set a monthly spending target, track progress with a visual gauge
 - **Savings Allocation** — Save remaining budget and allocate it to specific categories
-- **Multi-currency** — IDR and AUD supported; IDR input uses thousands (type `50` → `Rp50.000`)
+- **Multi-currency** — IDR and AUD supported; IDR input uses thousands (type `50` → `Rp50.000`); toggle display currency in Profile settings (1 AUD = 11,000 IDR); all amounts — budget wheel, categories, transactions, summary cards — convert automatically
 - **Transaction History** — Search and filter transactions by month
 - **Google OAuth** — Sign in with Google or link your Google account
 - **Password Reset** — OTP-based password reset via email
