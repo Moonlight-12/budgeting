@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RefreshCw, Target, Tags, Settings2, Link2, Link2Off, LogOut, User } from "lucide-react";
+import { Target, Tags, Settings2, Link2, Link2Off, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
@@ -13,7 +13,6 @@ import TransactionsTable from "./transactions-table";
 import CategoryManager from "./category-manager";
 
 export default function Dashboard() {
-  const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [recategorizing, setRecategorizing] = useState(false);
   const [showBudgetEdit, setShowBudgetEdit] = useState(false);
@@ -32,8 +31,11 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    handleSync(false);
+  }, []);
+
   const handleSync = async (full = false) => {
-    setSyncing(true);
     setSyncResult(null);
     try {
       const url = full ? "/api/transactions/sync?full=true" : "/api/transactions/sync";
@@ -49,9 +51,7 @@ export default function Dashboard() {
       }
     } catch {
       setSyncResult("Network error");
-    } finally {
-      setSyncing(false);
-    }
+    } finally {}
   };
 
   const handleRecategorize = async () => {
@@ -199,28 +199,7 @@ export default function Dashboard() {
             </Button>
           )}
 
-          <Button
-            size="sm"
-            onClick={() => handleSync(false)}
-            disabled={syncing}
-            className="bg-white text-zinc-900 hover:bg-zinc-100"
-          >
-            <RefreshCw size={14} className={`mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleSync(true)}
-            disabled={syncing}
-            className="text-zinc-300 border-white/10 bg-transparent hover:bg-zinc-800"
-          >
-            <RefreshCw size={14} className="mr-1.5" />
-            Full Sync
-          </Button>
-
-          <Button
+<Button
             size="sm"
             variant="outline"
             onClick={handleRecategorize}
