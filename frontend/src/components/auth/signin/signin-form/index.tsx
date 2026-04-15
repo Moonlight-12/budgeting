@@ -54,7 +54,12 @@ export default function SigninForm() {
 
     const existingScript = document.getElementById("google-gsi");
     if (existingScript) {
-      initGoogle(clientId);
+      // Script already loaded — defer so the button div is in the DOM
+      if (window.google) {
+        setTimeout(() => initGoogle(clientId), 0);
+      } else {
+        existingScript.addEventListener("load", () => initGoogle(clientId), { once: true });
+      }
       return;
     }
 
