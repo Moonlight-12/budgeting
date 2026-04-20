@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const jwt = require("jsonwebtoken");
+const { randomInt } = require("crypto");
 const authMiddleware = require("../middleware/auth");
 const { seedCategories } = require("../utils/seedCategories");
 
@@ -167,7 +168,7 @@ router.post("/forgot-password", async (req, res) => {
     // Don't reveal whether the email exists
     if (!user) return res.json({ message: "If that email is registered, you will receive a code" });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     user.otp = otp;
     user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();

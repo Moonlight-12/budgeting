@@ -156,7 +156,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
     const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
-    console.log("[sync] token source:", user?.upApiKey ? "user DB" : "env fallback", "| key prefix:", upApiKey?.slice(0, 12));
+    console.log("[sync] token source:", user?.upApiKey ? "user DB" : "env fallback");
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
     }

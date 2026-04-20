@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/user");
 const authMiddleware = require("../middleware/auth");
 const { encrypt, decrypt } = require("../utils/encrypt");
+const { randomInt } = require("crypto");
 
 // TODO: Implement user routes
 // router.get('/profile', ...);
@@ -120,7 +121,7 @@ router.post("/link-email/send-otp", authMiddleware, async (req, res) => {
       return res.status(409).json({ message: "Email already linked to another account" });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await User.findByIdAndUpdate(req.user.userId, { otp, otpExpiry });
