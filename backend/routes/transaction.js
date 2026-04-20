@@ -580,14 +580,19 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
       const di = headerCols.findIndex((h) => dateNames.includes(h));
       const ai = headerCols.findIndex((h) => amountNames.includes(h));
       const xi = headerCols.findIndex((h) => descNames.includes(h));
-      const dbi = headerCols.findIndex((h) => h === "debit");
-      const cri = headerCols.findIndex((h) => h === "credit");
+      // Match "Debit", "Debit Amount", "DebitAmount", etc.
+      const dbi = headerCols.findIndex((h) => h === "debit" || h.startsWith("debit"));
+      const cri = headerCols.findIndex((h) => h === "credit" || h.startsWith("credit"));
 
       if (di !== -1) dateIdx = di;
-      if (ai !== -1) amountIdx = ai;
       if (xi !== -1) descIdx = xi;
       // Separate debit/credit columns take precedence over a single amount column
-      if (dbi !== -1 && cri !== -1) { debitIdx = dbi; creditIdx = cri; }
+      if (dbi !== -1 && cri !== -1) {
+        debitIdx = dbi;
+        creditIdx = cri;
+      } else if (ai !== -1) {
+        amountIdx = ai;
+      }
     }
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
