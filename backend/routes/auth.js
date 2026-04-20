@@ -32,9 +32,29 @@ router.post("/signup", async (req, res) => {
     // Seed default categories for new user
     await seedCategories(newUser._id);
 
-    res
-      .status(201)
-      .json({ message: "Signup successful", username: newUser.username });
+    // Issue session cookies immediately so any existing session is overwritten
+    const accessToken = jwt.sign(
+      { userId: newUser._id, username: newUser.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    const refreshToken = jwt.sign(
+      { userId: newUser._id, username: newUser.username },
+      process.env.REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+    newUser.refreshToken = refreshToken;
+    await newUser.save();
+
+    const cookieOpts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    };
+    res.cookie("accessToken", accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie("refreshToken", refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    res.status(201).json({ message: "Signup successful", username: newUser.username });
   } catch (error) {
     console.error("Error during signup:", error);
     return res.status(500).json({ error: "Internal Server Error" });
