@@ -565,37 +565,36 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
       return isNaN(date.getTime()) ? null : date;
     }
 
-    // Detect header row: if first cell is not a date pattern, treat as header
-    const headerCols = parseCsvRow(lines[0]).map((c) => c.toLowerCase().replace(/[^a-z]/g, ""));
-    const hasHeader = !/^\d/.test(lines[0].trim());
+    const dateNames = ["date", "transactiondate", "txndate", "valuedate", "posteddate"];
+    const amountNames = ["amount", "debitamount", "creditamount", "transactionamount", "value"];
+    const descNames = ["description", "narrative", "narration", "details", "memo", "particulars", "reference", "txndescription"];
 
-    // Find column indices — match common header names across banks
+    // Find the header row by scanning the first 5 lines for one containing a recognisable date column.
+    // This handles files with title rows above the header (e.g. Westpac's Data_export_DDMMYYYY row).
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const cols = parseCsvRow(lines[i]).map((c) => c.toLowerCase().replace(/[^a-z]/g, ""));
+      if (cols.some((h) => dateNames.includes(h))) { headerRowIdx = i; break; }
+    }
+
     let dateIdx = 0, amountIdx = 1, descIdx = 2;
-    let debitIdx = -1, creditIdx = -1; // for banks with separate debit/credit columns (e.g. Westpac)
-    if (hasHeader) {
-      const dateNames = ["date", "transactiondate", "txndate", "valuedate", "posteddate"];
-      const amountNames = ["amount", "debitamount", "creditamount", "transactionamount", "value"];
-      const descNames = ["description", "narrative", "narration", "details", "memo", "particulars", "reference", "txndescription"];
+    let debitIdx = -1, creditIdx = -1;
 
+    if (headerRowIdx !== -1) {
+      const headerCols = parseCsvRow(lines[headerRowIdx]).map((c) => c.toLowerCase().replace(/[^a-z]/g, ""));
       const di = headerCols.findIndex((h) => dateNames.includes(h));
       const ai = headerCols.findIndex((h) => amountNames.includes(h));
       const xi = headerCols.findIndex((h) => descNames.includes(h));
-      // Match "Debit", "Debit Amount", "DebitAmount", etc.
       const dbi = headerCols.findIndex((h) => h === "debit" || h.startsWith("debit"));
       const cri = headerCols.findIndex((h) => h === "credit" || h.startsWith("credit"));
 
       if (di !== -1) dateIdx = di;
       if (xi !== -1) descIdx = xi;
-      // Separate debit/credit columns take precedence over a single amount column
-      if (dbi !== -1 && cri !== -1) {
-        debitIdx = dbi;
-        creditIdx = cri;
-      } else if (ai !== -1) {
-        amountIdx = ai;
-      }
+      if (dbi !== -1 && cri !== -1) { debitIdx = dbi; creditIdx = cri; }
+      else if (ai !== -1) { amountIdx = ai; }
     }
 
-    const dataLines = hasHeader ? lines.slice(1) : lines;
+    const dataLines = headerRowIdx !== -1 ? lines.slice(headerRowIdx + 1) : lines;
     if (dataLines.length === 0) return res.status(400).json({ message: "No data rows found in CSV" });
 
     const results = { saved: 0, skipped: 0, errors: 0 };
