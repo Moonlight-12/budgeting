@@ -8,8 +8,15 @@ const app = express()
 const connectDB = require('./config/db');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
 
-// connect to mongoDB
-connectDB();
+// Ensure DB is connected before every request (safe for serverless cold starts)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Security headers
 app.use(helmet({ crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } }));
