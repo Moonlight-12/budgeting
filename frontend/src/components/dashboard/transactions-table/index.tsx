@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { Search, ChevronLeft, ChevronRight, Plus, X, Upload, CheckCircle, AlertCircle } from "lucide-react";
 import TransactionDetailModal from "./transaction-detail-modal";
 import { useCurrency } from "@/src/contexts/currency-context";
 import { fmt as fmtLib } from "@/src/lib/currency";
@@ -199,6 +199,115 @@ function AddTransactionModal({ onClose, onAdded }: { onClose: () => void; onAdde
   );
 }
 
+function ImportCSVModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ saved: number; skipped: number; errors: number } | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  async function handleImport() {
+    if (!file) return;
+    setError("");
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/transactions/import-csv", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Import failed"); return; }
+      setResult({ saved: data.saved, skipped: data.skipped, errors: data.errors });
+      if (data.saved > 0) onImported();
+    } catch {
+      setError("Network error");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
+          <h2 className="text-white font-semibold text-sm">Import CommBank CSV</h2>
+          <button onClick={onClose} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          {!result ? (
+            <>
+              <p className="text-xs text-zinc-500">
+                Export your transactions from CommBank Internet Banking as a CSV file, then upload it here. Duplicate transactions are automatically skipped.
+              </p>
+              <div
+                className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center cursor-pointer hover:border-white/20 transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload size={20} className="mx-auto mb-2 text-zinc-500" />
+                {file ? (
+                  <p className="text-sm text-white">{file.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-zinc-400">Click to select CSV file</p>
+                    <p className="text-xs text-zinc-600 mt-1">CommBank export format</p>
+                  </>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              {error && <p className="text-xs text-rose-400">{error}</p>}
+              <button
+                onClick={handleImport}
+                disabled={!file || importing}
+                className="w-full py-2 rounded-lg bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+              >
+                {importing ? "Importing..." : "Import"}
+              </button>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <CheckCircle size={16} />
+                <span className="text-sm font-medium">Import complete</span>
+              </div>
+              <div className="bg-zinc-900 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Added</span>
+                  <span className="text-emerald-400 font-medium">{result.saved}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Skipped (duplicates)</span>
+                  <span className="text-zinc-500">{result.skipped}</span>
+                </div>
+                {result.errors > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400 flex items-center gap-1"><AlertCircle size={12} /> Errors</span>
+                    <span className="text-rose-400">{result.errors}</span>
+                  </div>
+                )}
+              </div>
+              <button onClick={onClose} className="w-full py-2 rounded-lg bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 transition-colors">
+                Done
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TransactionsTable() {
   const now = new Date();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -208,6 +317,7 @@ export default function TransactionsTable() {
   const [page, setPage] = useState(1);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
   useEffect(() => {
@@ -248,6 +358,13 @@ export default function TransactionsTable() {
       <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-white/8 flex-wrap">
         <h2 className="text-sm font-semibold text-white">All Transactions</h2>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-white/10 text-zinc-300 text-xs font-medium hover:bg-zinc-700 transition-colors"
+          >
+            <Upload size={13} />
+            Import CSV
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-zinc-900 text-xs font-medium hover:bg-zinc-100 transition-colors"
@@ -404,6 +521,19 @@ export default function TransactionsTable() {
           onAdded={(txn) => {
             setTransactions((prev) => [txn, ...prev]);
             setShowAddModal(false);
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportCSVModal
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            // Reload transactions list after import
+            fetch("/api/transactions/all")
+              .then((r) => r.json())
+              .then((data) => setTransactions(data.transactions ?? []))
+              .catch(console.error);
           }}
         />
       )}

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/user");
 const authMiddleware = require("../middleware/auth");
+const { encrypt, decrypt } = require("../utils/encrypt");
 
 // TODO: Implement user routes
 // router.get('/profile', ...);
@@ -77,10 +78,10 @@ router.post("/change-username", authMiddleware, async (req, res) => {
 router.get("/up-token", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
-    const key = user?.upApiKey;
+    const raw = user?.upApiKey ? decrypt(user.upApiKey) : null;
     res.json({
-      hasToken: !!key,
-      maskedToken: key ? `up:yeah:${"*".repeat(Math.max(0, key.length - 8))}${key.slice(-4)}` : null,
+      hasToken: !!raw,
+      maskedToken: raw ? `up:yeah:${"*".repeat(Math.max(0, raw.length - 8))}${raw.slice(-4)}` : null,
     });
   } catch (error) {
     console.error("Error fetching Up token:", error);
@@ -95,7 +96,7 @@ router.put("/up-token", authMiddleware, async (req, res) => {
     if (!upApiKey || typeof upApiKey !== "string") {
       return res.status(400).json({ message: "upApiKey is required" });
     }
-    await User.findByIdAndUpdate(req.user.userId, { upApiKey });
+    await User.findByIdAndUpdate(req.user.userId, { upApiKey: encrypt(upApiKey) });
     res.json({
       message: "Up Bank token saved",
       maskedToken: `up:yeah:${"*".repeat(Math.max(0, upApiKey.length - 8))}${upApiKey.slice(-4)}`,

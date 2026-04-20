@@ -1,10 +1,14 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const multer = require("multer");
 const authMiddleware = require("../middleware/auth");
 const Transaction = require("../models/transaction");
 const Category = require("../models/category");
 const User = require("../models/user");
+const { decrypt } = require("../utils/encrypt");
 const router = express.Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ─── Shared category mapping helpers ─────────────────────────────────────────
 
@@ -135,7 +139,7 @@ function getBudgetPeriod(utcOffset, referenceDateMs = Date.now()) {
 router.get("/accounts", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = user?.upApiKey || process.env.UP_API_KEY;
+    const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
     if (!upApiKey) return res.status(400).json({ message: "No Up Bank API key configured." });
 
     const response = await fetch("https://api.up.com.au/api/v1/accounts", {
@@ -151,7 +155,7 @@ router.get("/accounts", authMiddleware, async (req, res) => {
 router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = user?.upApiKey || process.env.UP_API_KEY;
+    const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
     console.log("[sync] token source:", user?.upApiKey ? "user DB" : "env fallback", "| key prefix:", upApiKey?.slice(0, 12));
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
@@ -524,6 +528,72 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     res.json({ message: "Transaction deleted" });
   } catch (error) {
     console.error("Error deleting transaction:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// CommBank CSV import
+// Expected format: Date,Amount,Description,Balance  (DD/MM/YYYY, no header or with header)
+router.post("/import-csv", authMiddleware, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const text = req.file.buffer.toString("utf8");
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+
+    // Skip header row if present (first cell is not a date)
+    const dataLines = /^\d{2}\/\d{2}\/\d{4}/.test(lines[0]) ? lines : lines.slice(1);
+
+    if (dataLines.length === 0) {
+      return res.status(400).json({ message: "No data rows found in CSV" });
+    }
+
+    const results = { saved: 0, skipped: 0, errors: 0 };
+
+    for (const line of dataLines) {
+      // Split on comma but respect quoted fields
+      const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g)?.map((c) => c.replace(/^"|"$/g, "").trim()) ?? [];
+      if (cols.length < 3) { results.errors++; continue; }
+
+      const [dateStr, amountStr, description] = cols;
+
+      // Parse DD/MM/YYYY
+      const [dd, mm, yyyy] = dateStr.split("/");
+      if (!dd || !mm || !yyyy) { results.errors++; continue; }
+      const txnDate = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd)));
+      if (isNaN(txnDate.getTime())) { results.errors++; continue; }
+
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount)) { results.errors++; continue; }
+
+      const valueInCents = Math.round(amount * 100);
+      const desc = description || "CommBank transaction";
+
+      // Stable dedup key based on date + amount + description
+      const transactionId = `commbank-${req.user.userId}-${dateStr}-${amountStr}-${desc.slice(0, 40)}`;
+
+      const exists = await Transaction.findOne({ transactionId });
+      if (exists) { results.skipped++; continue; }
+
+      const transaction = new Transaction({
+        userId: req.user.userId,
+        transactionId,
+        description: desc,
+        valueInCents,
+        transactionDate: txnDate,
+        settleDate: txnDate,
+        status: "SETTLED",
+        currency: "AUD",
+        categoryId: "other",
+      });
+
+      await transaction.save();
+      results.saved++;
+    }
+
+    res.json({ message: "Import complete", ...results });
+  } catch (error) {
+    console.error("Error importing CSV:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
