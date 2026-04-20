@@ -5,10 +5,6 @@ const authMiddleware = require("../middleware/auth");
 const { encrypt, decrypt } = require("../utils/encrypt");
 const { randomInt } = require("crypto");
 
-// TODO: Implement user routes
-// router.get('/profile', ...);
-// router.put('/profile', ...);
-
 // PUT: update preferred display currency
 router.put("/preference", authMiddleware, async (req, res) => {
   try {
@@ -24,7 +20,6 @@ router.put("/preference", authMiddleware, async (req, res) => {
   }
 });
 
-//get user information
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;

@@ -156,7 +156,6 @@ router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
     const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
-    console.log("[sync] token source:", user?.upApiKey ? "user DB" : "env fallback");
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
     }
@@ -171,14 +170,12 @@ router.post("/sync", authMiddleware, async (req, res) => {
       headers: { Authorization: `Bearer ${upApiKey}` },
     });
     const accountsData = await accountsResponse.json();
-    console.log("[sync] accounts HTTP status:", accountsResponse.status, "| raw:", JSON.stringify(accountsData).slice(0, 200));
     const availableAccounts = accountsData.data?.map((a) => ({
       id: a.id,
       displayName: a.attributes?.displayName,
       accountType: a.attributes?.accountType,
       ownershipType: a.attributes?.ownershipType,
     })) ?? [];
-    console.log("[sync] Up Bank accounts:", JSON.stringify(availableAccounts, null, 2));
 
     const spendingsAccount = accountsData.data?.find(
       (a) => a.attributes?.accountType === "TRANSACTIONAL"
@@ -209,7 +206,6 @@ router.post("/sync", authMiddleware, async (req, res) => {
         headers: { Authorization: `Bearer ${upApiKey}` },
       });
       const data = await response.json();
-      console.log("[sync] fetch", nextUrl, "| status:", response.status, "| count:", data.data?.length, "| error:", data.errors?.[0]?.title);
 
       for (const tsn of data.data) {
         seenTransactionIds.add(tsn.id);
@@ -251,17 +247,14 @@ router.post("/sync", authMiddleware, async (req, res) => {
       nextUrl = data.links?.next || null;
     }
 
-    // On a full sync, delete any transactions not returned by the spending account endpoint
     if (full) {
       const deleted = await Transaction.deleteMany({
         userId: req.user.userId,
         transactionId: { $nin: Array.from(seenTransactionIds) },
       });
-      console.log(`[sync] Deleted ${deleted.deletedCount} non-spendings transactions`);
       results.deleted = deleted.deletedCount;
     }
 
-    console.log("[sync] results:", results);
     res.json({ message: "Sync Complete", ...results });
   } catch (error) {
     console.error("Error fetching transactions from Up API:", error);
@@ -578,18 +571,23 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
 
     // Find column indices — match common header names across banks
     let dateIdx = 0, amountIdx = 1, descIdx = 2;
+    let debitIdx = -1, creditIdx = -1; // for banks with separate debit/credit columns (e.g. Westpac)
     if (hasHeader) {
       const dateNames = ["date", "transactiondate", "txndate", "valuedate", "posteddate"];
       const amountNames = ["amount", "debitamount", "creditamount", "transactionamount", "value"];
-      const descNames = ["description", "narrative", "details", "memo", "particulars", "reference", "txndescription"];
+      const descNames = ["description", "narrative", "narration", "details", "memo", "particulars", "reference", "txndescription"];
 
       const di = headerCols.findIndex((h) => dateNames.includes(h));
       const ai = headerCols.findIndex((h) => amountNames.includes(h));
       const xi = headerCols.findIndex((h) => descNames.includes(h));
+      const dbi = headerCols.findIndex((h) => h === "debit");
+      const cri = headerCols.findIndex((h) => h === "credit");
 
       if (di !== -1) dateIdx = di;
       if (ai !== -1) amountIdx = ai;
       if (xi !== -1) descIdx = xi;
+      // Separate debit/credit columns take precedence over a single amount column
+      if (dbi !== -1 && cri !== -1) { debitIdx = dbi; creditIdx = cri; }
     }
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
@@ -599,19 +597,26 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
 
     for (const line of dataLines) {
       const cols = parseCsvRow(line);
-      if (cols.length <= Math.max(dateIdx, amountIdx)) { results.errors++; continue; }
 
       const txnDate = parseDate(cols[dateIdx]);
       if (!txnDate) { results.errors++; continue; }
 
-      const amountStr = cols[amountIdx]?.replace(/[^0-9.\-]/g, "");
-      const amount = parseFloat(amountStr);
+      let amount;
+      if (debitIdx !== -1 && creditIdx !== -1) {
+        // Westpac-style: debit is positive (expense), credit is positive (income)
+        const debit = parseFloat(cols[debitIdx]?.replace(/[^0-9.]/g, "") || "0");
+        const credit = parseFloat(cols[creditIdx]?.replace(/[^0-9.]/g, "") || "0");
+        amount = (credit || 0) - (debit || 0);
+      } else {
+        const amountStr = cols[amountIdx]?.replace(/[^0-9.\-]/g, "");
+        amount = parseFloat(amountStr);
+      }
       if (isNaN(amount)) { results.errors++; continue; }
 
       const desc = (cols[descIdx] ?? "").trim() || "Imported transaction";
       const valueInCents = Math.round(amount * 100);
       const dateKey = txnDate.toISOString().slice(0, 10);
-      const transactionId = `csv-${req.user.userId}-${dateKey}-${amountStr}-${desc.slice(0, 40)}`;
+      const transactionId = `csv-${req.user.userId}-${dateKey}-${valueInCents}-${desc.slice(0, 40)}`;
 
       const exists = await Transaction.findOne({ transactionId });
       if (exists) { results.skipped++; continue; }

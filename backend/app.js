@@ -44,9 +44,8 @@ app.use("/api/v1/auth", authLimiter);
 
 app.use("/api/v1", require("./config/routes"));
 
-// respond with "hello world" when a GET request is made to the homepage
 app.get('/', (req, res) => {
-  res.send('hello world')
+  res.send('ok')
 })
 
 module.exports = app;

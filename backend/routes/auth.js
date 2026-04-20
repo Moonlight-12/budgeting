@@ -8,7 +8,6 @@ const { randomInt } = require("crypto");
 const authMiddleware = require("../middleware/auth");
 const { seedCategories } = require("../utils/seedCategories");
 
-// signup
 router.post("/signup", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -62,7 +61,6 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-// signin
 router.post("/signin", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -123,7 +121,6 @@ router.post("/signin", async (req, res) => {
   }
 });
 
-// change password
 router.post("/change-password", authMiddleware, async (req, res) => {
   try {
     const { password, newPassword } = req.body;
@@ -157,7 +154,6 @@ router.post("/change-password", authMiddleware, async (req, res) => {
   }
 });
 
-// forgot password — sends OTP to linked email
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -195,7 +191,6 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-// reset password — verify OTP then set new password
 router.post("/reset-password", async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
