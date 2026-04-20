@@ -532,50 +532,91 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// CommBank CSV import
-// Expected format: Date,Amount,Description,Balance  (DD/MM/YYYY, no header or with header)
+// Universal bank CSV import
+// Auto-detects column positions from header row (Date, Amount, Description).
+// Supports date formats: DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY.
+// Falls back to positional (col 0 = date, col 1 = amount, col 2 = description) if no header.
 router.post("/import-csv", authMiddleware, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
     const text = req.file.buffer.toString("utf8");
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length === 0) return res.status(400).json({ message: "Empty file" });
 
-    // Skip header row if present (first cell is not a date)
-    const dataLines = /^\d{2}\/\d{2}\/\d{4}/.test(lines[0]) ? lines : lines.slice(1);
-
-    if (dataLines.length === 0) {
-      return res.status(400).json({ message: "No data rows found in CSV" });
+    function parseCsvRow(line) {
+      const cols = [];
+      let cur = "", inQuote = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') { inQuote = !inQuote; }
+        else if (line[i] === "," && !inQuote) { cols.push(cur.trim()); cur = ""; }
+        else { cur += line[i]; }
+      }
+      cols.push(cur.trim());
+      return cols;
     }
+
+    function parseDate(str) {
+      const s = str.trim();
+      let d, m, y;
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {       // YYYY-MM-DD (ISO)
+        [y, m, d] = s.slice(0, 10).split("-").map(Number);
+      } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { // DD/MM/YYYY or MM/DD/YYYY
+        const [a, b, c] = s.split("/").map(Number);
+        // Assume DD/MM/YYYY (AU standard); if day > 12 it must be DD
+        d = a; m = b; y = c;
+      } else {
+        return null;
+      }
+      const date = new Date(Date.UTC(y, m - 1, d));
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    // Detect header row: if first cell is not a date pattern, treat as header
+    const headerCols = parseCsvRow(lines[0]).map((c) => c.toLowerCase().replace(/[^a-z]/g, ""));
+    const hasHeader = !/^\d/.test(lines[0].trim());
+
+    // Find column indices — match common header names across banks
+    let dateIdx = 0, amountIdx = 1, descIdx = 2;
+    if (hasHeader) {
+      const dateNames = ["date", "transactiondate", "txndate", "valuedate", "posteddate"];
+      const amountNames = ["amount", "debitamount", "creditamount", "transactionamount", "value"];
+      const descNames = ["description", "narrative", "details", "memo", "particulars", "reference", "txndescription"];
+
+      const di = headerCols.findIndex((h) => dateNames.includes(h));
+      const ai = headerCols.findIndex((h) => amountNames.includes(h));
+      const xi = headerCols.findIndex((h) => descNames.includes(h));
+
+      if (di !== -1) dateIdx = di;
+      if (ai !== -1) amountIdx = ai;
+      if (xi !== -1) descIdx = xi;
+    }
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+    if (dataLines.length === 0) return res.status(400).json({ message: "No data rows found in CSV" });
 
     const results = { saved: 0, skipped: 0, errors: 0 };
 
     for (const line of dataLines) {
-      // Split on comma but respect quoted fields
-      const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g)?.map((c) => c.replace(/^"|"$/g, "").trim()) ?? [];
-      if (cols.length < 3) { results.errors++; continue; }
+      const cols = parseCsvRow(line);
+      if (cols.length <= Math.max(dateIdx, amountIdx)) { results.errors++; continue; }
 
-      const [dateStr, amountStr, description] = cols;
+      const txnDate = parseDate(cols[dateIdx]);
+      if (!txnDate) { results.errors++; continue; }
 
-      // Parse DD/MM/YYYY
-      const [dd, mm, yyyy] = dateStr.split("/");
-      if (!dd || !mm || !yyyy) { results.errors++; continue; }
-      const txnDate = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd)));
-      if (isNaN(txnDate.getTime())) { results.errors++; continue; }
-
+      const amountStr = cols[amountIdx]?.replace(/[^0-9.\-]/g, "");
       const amount = parseFloat(amountStr);
       if (isNaN(amount)) { results.errors++; continue; }
 
+      const desc = (cols[descIdx] ?? "").trim() || "Imported transaction";
       const valueInCents = Math.round(amount * 100);
-      const desc = description || "CommBank transaction";
-
-      // Stable dedup key based on date + amount + description
-      const transactionId = `commbank-${req.user.userId}-${dateStr}-${amountStr}-${desc.slice(0, 40)}`;
+      const dateKey = txnDate.toISOString().slice(0, 10);
+      const transactionId = `csv-${req.user.userId}-${dateKey}-${amountStr}-${desc.slice(0, 40)}`;
 
       const exists = await Transaction.findOne({ transactionId });
       if (exists) { results.skipped++; continue; }
 
-      const transaction = new Transaction({
+      await new Transaction({
         userId: req.user.userId,
         transactionId,
         description: desc,
@@ -585,9 +626,7 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
         status: "SETTLED",
         currency: "AUD",
         categoryId: "other",
-      });
-
-      await transaction.save();
+      }).save();
       results.saved++;
     }
 

@@ -234,7 +234,7 @@ function ImportCSVModal({ onClose, onImported }: { onClose: () => void; onImport
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-zinc-950 border border-white/10 rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
-          <h2 className="text-white font-semibold text-sm">Import CommBank CSV</h2>
+          <h2 className="text-white font-semibold text-sm">Import Bank CSV</h2>
           <button onClick={onClose} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
             <X size={16} />
           </button>
@@ -433,12 +433,12 @@ export default function TransactionsTable() {
                   <tr
                     key={txn._id}
                     onClick={() => setSelectedTxn(txn)}
-                    className="border-b border-white/5 hover:bg-white/[0.03] transition-colors cursor-pointer"
+                    className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer"
                   >
                     <td className="px-5 py-3.5 text-zinc-400 whitespace-nowrap">
                       {getDate(txn)}
                     </td>
-                    <td className="px-4 py-3.5 text-white max-w-[260px] truncate">
+                    <td className="px-4 py-3.5 text-white max-w-65 truncate">
                       {txn.description}
                     </td>
                     <td className="px-4 py-3.5">
