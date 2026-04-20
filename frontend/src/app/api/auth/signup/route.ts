@@ -10,5 +10,15 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  const nextResponse = NextResponse.json(data, { status: res.status });
+
+  // Forward session cookies so the new account's session overwrites any existing one
+  const setCookieHeader = res.headers.get("set-cookie");
+  if (setCookieHeader) {
+    setCookieHeader.split(/,(?=\s*\w+=)/).forEach((cookie) => {
+      nextResponse.headers.append("set-cookie", cookie.trim());
+    });
+  }
+
+  return nextResponse;
 }

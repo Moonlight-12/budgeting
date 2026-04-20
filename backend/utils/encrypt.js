@@ -1,9 +1,18 @@
 const crypto = require("crypto");
 
-// Derive a 32-byte key from ENCRYPTION_KEY env var, falling back to JWT_SECRET
+// Derive a 32-byte key from ENCRYPTION_KEY env var (required; must be separate from JWT_SECRET)
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
-  if (!raw) throw new Error("No encryption key configured");
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY env var is required in production");
+    }
+    // Development fallback only — never share with JWT_SECRET in production
+    console.warn("[encrypt] WARNING: ENCRYPTION_KEY not set, using JWT_SECRET as fallback. Set ENCRYPTION_KEY in production.");
+    const fallback = process.env.JWT_SECRET;
+    if (!fallback) throw new Error("No encryption key configured");
+    return crypto.createHash("sha256").update("enc:" + fallback).digest();
+  }
   return crypto.createHash("sha256").update(raw).digest();
 }
 
