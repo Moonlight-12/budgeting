@@ -9,19 +9,15 @@ A personal budgeting app for tracking spending, managing categories, and setting
 ## Screenshots
 
 ### Dashboard
-<!-- Replace with actual GIF -->
 ![Dashboard](docs/dashboard.gif)
 
 ### Categories & Budget Tracking
-<!-- Replace with actual GIF -->
 ![Categories](docs/categories.gif)
 
 ### Transaction Management
-<!-- Replace with actual GIF -->
 ![Transactions](docs/transactions.gif)
 
 ### Sign In
-<!-- Replace with actual GIF -->
 ![Sign In](docs/signin.gif)
 
 ---
@@ -29,7 +25,7 @@ A personal budgeting app for tracking spending, managing categories, and setting
 ## Features
 
 - **Up Bank Sync** *(optional)* — Automatically sync transactions from your Up Bank spending account on every login; requires a Personal Access Token saved in Profile
-- **CSV Import** — Import transactions from a bank CSV export (standard `Date,Amount,Description` format); duplicates are automatically skipped
+- **CSV Import** — Import transactions from any bank CSV export (CommBank, Westpac, ANZ, NAB); auto-detects columns and date formats; duplicates are automatically skipped
 - **Category Tracking** — Spending breakdown by category with budget vs actual comparison across billing periods
 - **Manual Transactions** — Add transactions manually (income or expense) with IDR or AUD currency support
 - **Budget Management** — Set a monthly spending target, track progress with a visual gauge
