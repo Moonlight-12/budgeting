@@ -9,16 +9,32 @@ A personal budgeting app for tracking spending, managing categories, and setting
 ## Screenshots
 
 ### Dashboard
-![Dashboard](docs/dashboard.gif)
+DESKTOP
+<img width="2560" height="354" alt="Screenshot 2026-04-20 at 10 18 57 pm" src="https://github.com/user-attachments/assets/aecdeca0-fe79-458b-89fd-a686e943b6bc" />
+
+MOBILE
+<img width="329" height="527" alt="Screenshot 2026-04-20 at 10 19 05 pm" src="https://github.com/user-attachments/assets/3cc13dc7-580f-49fe-a952-1afabcda842f" />
 
 ### Categories & Budget Tracking
-![Categories](docs/categories.gif)
+DESKTOP
+<img width="2084" height="1100" alt="Screenshot 2026-04-20 at 10 19 34 pm" src="https://github.com/user-attachments/assets/ae8feb37-db33-4204-bd0d-87b71e1a262b" />
+
+MOBILE
+<img width="325" height="648" alt="Screenshot 2026-04-20 at 10 19 27 pm" src="https://github.com/user-attachments/assets/f4569143-a272-4e02-b668-68230ef1175d" />
 
 ### Transaction Management
-![Transactions](docs/transactions.gif)
+DESKTOP
+<img width="469" height="444" alt="Screenshot 2026-04-20 at 10 19 59 pm" src="https://github.com/user-attachments/assets/4db72e18-e339-4c0b-b2df-d8e9ef272f66" />
+
+MOBILE
+<img width="434" height="930" alt="Screenshot 2026-04-20 at 10 20 17 pm" src="https://github.com/user-attachments/assets/df453e08-2a48-46e6-8551-5c6244bc8a7f" />
 
 ### Sign In
-![Sign In](docs/signin.gif)
+DESKTOP
+<img width="2097" height="1328" alt="Screenshot 2026-04-20 at 10 20 38 pm" src="https://github.com/user-attachments/assets/839591d2-b027-4a2f-b4a7-6aeda1bf28d6" />
+
+MOBILE
+<img width="430" height="934" alt="Screenshot 2026-04-20 at 10 20 33 pm" src="https://github.com/user-attachments/assets/37df9f80-f1e1-4d19-8e00-aa2fb7a3ec3b" />
 
 ---
 
