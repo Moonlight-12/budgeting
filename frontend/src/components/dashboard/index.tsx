@@ -7,10 +7,12 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import dynamic from "next/dynamic";
 const Chart = dynamic(() => import("./chart"), { ssr: false });
+const SpendingTrends = dynamic(() => import("./spending-trends"), { ssr: false });
 import SummaryCards from "./summary-cards";
 import CategoriesTable from "./categories-table";
 import TransactionsTable from "./transactions-table";
 import CategoryManager from "./category-manager";
+import SavingsGoals from "./savings-goals";
 
 export default function Dashboard() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -253,6 +255,16 @@ export default function Dashboard() {
 
       {/* Categories spending table */}
       <CategoriesTable />
+
+      {/* Spending trends + savings goals side by side on large screens */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1">
+          <SpendingTrends />
+        </div>
+        <div className="flex-1">
+          <SavingsGoals />
+        </div>
+      </div>
 
       {/* All transactions table */}
       <TransactionsTable />

@@ -48,7 +48,7 @@ interface Allocation {
 
 // All Up Bank / budget data is AUD cents — formatters convert to preferred display currency
 function useFormatters() {
-  const { preferredCurrency } = useCurrency();
+  const { preferredCurrency, billingStartDay } = useCurrency();
   return {
     fmt: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency),
     fmtFull: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency, true),
@@ -245,7 +245,7 @@ export default function CategoriesTable() {
     const utcOffset = new Date().getTimezoneOffset();
 
     Promise.all([
-      fetch(`/api/transactions/categories-summary?utcOffset=${utcOffset}`).then((r) => r.json()),
+      fetch(`/api/transactions/categories-summary?utcOffset=${utcOffset}&billingStartDay=${billingStartDay}`).then((r) => r.json()),
       fetch("/api/categories").then((r) => r.json()),
       fetch("/api/budget/savings").then((r) => r.json()),
     ])

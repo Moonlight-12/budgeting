@@ -14,7 +14,7 @@ interface SummaryData {
 }
 
 export default function SummaryCards() {
-  const { preferredCurrency } = useCurrency();
+  const { preferredCurrency, billingStartDay } = useCurrency();
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +23,7 @@ export default function SummaryCards() {
 
   useEffect(() => {
     const utcOffset = new Date().getTimezoneOffset();
-    fetch(`/api/transactions/summary?utcOffset=${utcOffset}`)
+    fetch(`/api/transactions/summary?utcOffset=${utcOffset}&billingStartDay=${billingStartDay}`)
       .then((r) => r.json())
       .then(setData)
       .catch(console.error)

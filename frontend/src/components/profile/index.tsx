@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2, Lock, Eye, EyeOff, Coins } from "lucide-react";
+import { ArrowLeft, Mail, Chrome, CheckCircle, Loader2, Lock, Eye, EyeOff, Coins, CalendarDays } from "lucide-react";
 import { useCurrency } from "@/src/contexts/currency-context";
 import Link from "next/link";
 
@@ -28,7 +28,8 @@ interface UserProfile {
 type ModalStep = "input" | "otp";
 
 export default function ProfilePage() {
-  const { preferredCurrency, setCurrency } = useCurrency();
+  const { preferredCurrency, setCurrency, billingStartDay, setBillingStartDay } = useCurrency();
+  const [billingDayInput, setBillingDayInput] = useState<string>("");
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -324,6 +325,51 @@ export default function ProfilePage() {
           >
             IDR
           </button>
+        </div>
+      </div>
+
+      {/* Billing Period */}
+      <h2 className="text-base font-semibold text-white mt-8 mb-4 flex items-center gap-2">
+        <CalendarDays size={16} className="text-zinc-400" />
+        Billing Period
+      </h2>
+      <div className="bg-zinc-900 border border-white/8 rounded-2xl px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-white font-medium">Period start day</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {billingStartDay === 1
+                ? "1st → last day of month"
+                : `${billingStartDay}${["st","nd","rd"][billingStartDay - 1] ?? "th"} → ${billingStartDay - 1}${["st","nd","rd"][billingStartDay - 2] ?? "th"} of next month`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { const d = Math.max(1, billingStartDay - 1); setBillingStartDay(d); }}
+              className="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-sm font-medium flex items-center justify-center"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={28}
+              value={billingDayInput !== "" ? billingDayInput : billingStartDay}
+              onChange={(e) => setBillingDayInput(e.target.value)}
+              onBlur={() => {
+                const d = parseInt(billingDayInput);
+                if (!isNaN(d) && d >= 1 && d <= 28) setBillingStartDay(d);
+                setBillingDayInput("");
+              }}
+              className="w-12 text-center bg-zinc-800 border border-white/10 rounded-lg py-1.5 text-sm text-white focus:outline-none focus:border-white/25"
+            />
+            <button
+              onClick={() => { const d = Math.min(28, billingStartDay + 1); setBillingStartDay(d); }}
+              className="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-sm font-medium flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 

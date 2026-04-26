@@ -28,10 +28,12 @@ function SpendingModal({
   onClose,
   spending,
   budget,
+  billingStartDay,
 }: {
   onClose: () => void;
   spending: number;
   budget: number;
+  billingStartDay: number;
 }) {
   const { preferredCurrency } = useCurrency();
   const fmtAmount = (cents: number) => fmtCurrency(toDisplayValue(cents, "AUD", preferredCurrency), preferredCurrency, true);
@@ -41,12 +43,12 @@ function SpendingModal({
 
   useEffect(() => {
     const utcOffset = new Date().getTimezoneOffset();
-    fetch(`/api/transactions/monthly?utcOffset=${utcOffset}`)
+    fetch(`/api/transactions/monthly?utcOffset=${utcOffset}&billingStartDay=${billingStartDay}`)
       .then((r) => r.json())
       .then((data) => setTransactions(data.transactions ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [billingStartDay]);
 
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -159,7 +161,7 @@ function SpendingModal({
 }
 
 export default function Chart() {
-  const { preferredCurrency } = useCurrency();
+  const { preferredCurrency, billingStartDay } = useCurrency();
   const fmtVal = (audCents: number) => fmtCurrency(toDisplayValue(audCents, "AUD", preferredCurrency), preferredCurrency);
   const [spending, setSpending] = useState(0);
   const [budget, setBudget] = useState(0);
@@ -169,14 +171,18 @@ export default function Chart() {
   useEffect(() => {
     const utcOffset = new Date().getTimezoneOffset();
     Promise.all([
-      fetch(`/api/transactions/calculate-monthly?utcOffset=${utcOffset}`),
+      fetch(`/api/transactions/calculate-monthly?utcOffset=${utcOffset}&billingStartDay=${billingStartDay}`),
       fetch("/api/budget"),
+      fetch(`/api/transactions/summary?utcOffset=${utcOffset}&billingStartDay=${billingStartDay}`),
     ])
-      .then(async ([spendingRes, budgetRes]) => {
+      .then(async ([spendingRes, budgetRes, summaryRes]) => {
         const spendingData = await spendingRes.json();
         const budgetData = await budgetRes.json();
+        const summaryData = await summaryRes.json();
         setSpending(Math.abs(spendingData.totalAmount || 0));
-        setBudget(budgetData.monthlyTarget || 0);
+        const target = budgetData.monthlyTarget || 0;
+        const income = (summaryData.totalIncome || 0) / 100;
+        setBudget(target > 0 ? target : income);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -224,6 +230,7 @@ export default function Chart() {
           onClose={() => setShowModal(false)}
           spending={spending}
           budget={budget}
+          billingStartDay={billingStartDay}
         />
       )}
     </>

@@ -5,7 +5,16 @@ const authMiddleware = require("../middleware/auth");
 const Transaction = require("../models/transaction");
 const Category = require("../models/category");
 const User = require("../models/user");
-const { decrypt } = require("../utils/encrypt");
+const { encrypt, decrypt } = require("../utils/encrypt");
+
+const encryptDesc = (desc) => desc ? encrypt(desc) : desc;
+const decryptDesc = (desc) => desc ? decrypt(desc) : desc;
+const decryptTxn = (txn) => {
+  const obj = txn.toObject ? txn.toObject() : { ...txn };
+  obj.description = decryptDesc(obj.description);
+  if (obj.note) obj.note = decryptDesc(obj.note);
+  return obj;
+};
 const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -107,29 +116,32 @@ async function buildCategoryHelpers(userId) {
 
 // ─── Budget period helper ─────────────────────────────────────────────────────
 
-function getBudgetPeriod(utcOffset, referenceDateMs = Date.now()) {
+function getBudgetPeriod(utcOffset, referenceDateMs = Date.now(), startDay = 1) {
   const offsetMs = utcOffset * 60 * 1000;
   const nowLocal = new Date(referenceDateMs - offsetMs);
   const day = nowLocal.getUTCDate();
   const month = nowLocal.getUTCMonth();
   const year = nowLocal.getUTCFullYear();
 
-  let startYear, startMonth, endYear, endMonth;
+  let startMonth, startYear, endMonth, endYear;
 
-  if (day <= 14) {
+  if (day < startDay) {
     startMonth = month === 0 ? 11 : month - 1;
-    startYear = month === 0 ? year - 1 : year;
-    endMonth = month;
-    endYear = year;
+    startYear  = month === 0 ? year - 1 : year;
+    endMonth   = month;
+    endYear    = year;
   } else {
     startMonth = month;
-    startYear = year;
-    endMonth = month === 11 ? 0 : month + 1;
-    endYear = month === 11 ? year + 1 : year;
+    startYear  = year;
+    endMonth   = month === 11 ? 0 : month + 1;
+    endYear    = month === 11 ? year + 1 : year;
   }
 
-  const periodStart = new Date(Date.UTC(startYear, startMonth, 12) + offsetMs);
-  const periodEnd = new Date(Date.UTC(endYear, endMonth, 14, 23, 59, 59, 999) + offsetMs);
+  const endDay = startDay - 1;
+  const periodStart = new Date(Date.UTC(startYear, startMonth, startDay) + offsetMs);
+  const periodEnd = endDay === 0
+    ? new Date(Date.UTC(endYear, endMonth, 0, 23, 59, 59, 999) + offsetMs)
+    : new Date(Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999) + offsetMs);
 
   return { periodStart, periodEnd };
 }
@@ -233,7 +245,7 @@ router.post("/sync", authMiddleware, async (req, res) => {
           status: tsn.attributes.status,
           currency: tsn.attributes.amount.currencyCode,
           valueInCents: tsn.attributes.amount.valueInBaseUnits,
-          description: tsn.attributes.description,
+          description: encryptDesc(tsn.attributes.description),
           categoryId,
           upCategoryId,
           accountId: spendingsAccount.id,
@@ -278,7 +290,7 @@ router.post("/recategorize", authMiddleware, async (req, res) => {
     let updated = 0;
 
     for (const txn of transactions) {
-      const newCategoryId = resolveCategoryId(txn.upCategoryId, txn.description);
+      const newCategoryId = resolveCategoryId(txn.upCategoryId, decryptDesc(txn.description));
       await ensureCategory(newCategoryId);
 
       if (txn.categoryId !== newCategoryId) {
@@ -326,7 +338,7 @@ router.post("/manual", authMiddleware, async (req, res) => {
     const transaction = new Transaction({
       userId: req.user.userId,
       transactionId,
-      description: description.trim(),
+      description: encryptDesc(description.trim()),
       valueInCents,
       transactionDate: new Date(date),
       categoryId: categoryId || "other",
@@ -334,7 +346,7 @@ router.post("/manual", authMiddleware, async (req, res) => {
       currency: resolvedCurrency,
     });
     await transaction.save();
-    res.status(201).json({ message: "Transaction added", transaction });
+    res.status(201).json({ message: "Transaction added", transaction: decryptTxn(transaction) });
   } catch (error) {
     console.error("Error adding manual transaction:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -345,7 +357,7 @@ router.get("/all", authMiddleware, async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.user.userId })
       .sort({ transactionDate: -1, settleDate: -1 });
-    res.status(200).json({ message: "Showing All Transaction", transactions });
+    res.status(200).json({ message: "Showing All Transaction", transactions: transactions.map(decryptTxn) });
   } catch (error) {
     console.error("error:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -354,7 +366,8 @@ router.get("/all", authMiddleware, async (req, res) => {
 
 router.get("/monthly", authMiddleware, async (req, res) => {
   try {
-    const { periodStart, periodEnd } = getBudgetPeriod(parseInt(req.query.utcOffset) || 0);
+    const startDay = parseInt(req.query.billingStartDay) || 1;
+    const { periodStart, periodEnd } = getBudgetPeriod(parseInt(req.query.utcOffset) || 0, Date.now(), startDay);
 
     const transactions = await Transaction.find({
       userId: new mongoose.Types.ObjectId(req.user.userId),
@@ -364,7 +377,7 @@ router.get("/monthly", authMiddleware, async (req, res) => {
       ],
     }).sort({ transactionDate: -1, settleDate: -1 });
 
-    res.status(200).json({ message: "Monthly transactions retrieved", transactions });
+    res.status(200).json({ message: "Monthly transactions retrieved", transactions: transactions.map(decryptTxn) });
   } catch (error) {
     console.error("Error fetching monthly transactions:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -373,7 +386,8 @@ router.get("/monthly", authMiddleware, async (req, res) => {
 
 router.get("/calculate-monthly", authMiddleware, async (req, res) => {
   try {
-    const { periodStart, periodEnd } = getBudgetPeriod(parseInt(req.query.utcOffset) || 0);
+    const startDay = parseInt(req.query.billingStartDay) || 1;
+    const { periodStart, periodEnd } = getBudgetPeriod(parseInt(req.query.utcOffset) || 0, Date.now(), startDay);
     const result = await Transaction.aggregate([
       {
         $match: {
@@ -405,8 +419,9 @@ router.get("/calculate-monthly", authMiddleware, async (req, res) => {
 router.get("/categories-summary", authMiddleware, async (req, res) => {
   try {
     const utcOffset = parseInt(req.query.utcOffset) || 0;
-    const { periodStart, periodEnd } = getBudgetPeriod(utcOffset);
-    const { periodStart: prevStart, periodEnd: prevEnd } = getBudgetPeriod(utcOffset, periodStart.getTime() - 1);
+    const startDay = parseInt(req.query.billingStartDay) || 1;
+    const { periodStart, periodEnd } = getBudgetPeriod(utcOffset, Date.now(), startDay);
+    const { periodStart: prevStart, periodEnd: prevEnd } = getBudgetPeriod(utcOffset, periodStart.getTime() - 1, startDay);
 
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
@@ -445,7 +460,8 @@ router.get("/categories-summary", authMiddleware, async (req, res) => {
 router.get("/summary", authMiddleware, async (req, res) => {
   try {
     const utcOffset = parseInt(req.query.utcOffset) || 0;
-    const { periodStart, periodEnd } = getBudgetPeriod(utcOffset);
+    const startDay = parseInt(req.query.billingStartDay) || 1;
+    const { periodStart, periodEnd } = getBudgetPeriod(utcOffset, Date.now(), startDay);
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     const [result] = await Transaction.aggregate([
@@ -484,17 +500,21 @@ router.get("/summary", authMiddleware, async (req, res) => {
   }
 });
 
-// Update a single transaction's category
+// Update a single transaction's category and/or note
 router.patch("/:id", authMiddleware, async (req, res) => {
   try {
-    const { categoryId } = req.body;
-    if (!categoryId) {
-      return res.status(400).json({ message: "categoryId is required" });
+    const { categoryId, note } = req.body;
+    if (!categoryId && note === undefined) {
+      return res.status(400).json({ message: "categoryId or note is required" });
     }
+
+    const update = {};
+    if (categoryId) update.categoryId = categoryId;
+    if (note !== undefined) update.note = note.trim() ? encryptDesc(note.trim()) : "";
 
     const transaction = await Transaction.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.userId },
-      { $set: { categoryId } },
+      { $set: update },
       { new: true }
     );
 
@@ -502,7 +522,7 @@ router.patch("/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
-    res.json({ message: "Transaction updated", transaction });
+    res.json({ message: "Transaction updated", transaction: decryptTxn(transaction) });
   } catch (error) {
     console.error("Error updating transaction:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -522,6 +542,57 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   } catch (error) {
     console.error("Error deleting transaction:", error);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+router.get("/spending-trends", authMiddleware, async (req, res) => {
+  try {
+    const utcOffset = parseInt(req.query.utcOffset) || 0;
+    const startDay = parseInt(req.query.billingStartDay) || 1;
+    const months = Math.min(parseInt(req.query.months) || 6, 12);
+    const userId = new mongoose.Types.ObjectId(req.user.userId);
+
+    // Build an array of the last N billing periods (oldest first)
+    const periods = [];
+    let refMs = Date.now();
+    for (let i = 0; i < months; i++) {
+      const { periodStart, periodEnd } = getBudgetPeriod(utcOffset, refMs, startDay);
+      periods.unshift({ periodStart, periodEnd });
+      refMs = periodStart.getTime() - 1;
+    }
+
+    const results = await Promise.all(
+      periods.map(async ({ periodStart, periodEnd }) => {
+        const dateMatch = {
+          $or: [
+            { transactionDate: { $gte: periodStart, $lte: periodEnd } },
+            { transactionDate: null, settleDate: { $gte: periodStart, $lte: periodEnd } },
+          ],
+        };
+        const [agg] = await Transaction.aggregate([
+          { $match: { userId, ...dateMatch } },
+          {
+            $group: {
+              _id: null,
+              spending: { $sum: { $cond: [{ $lt: ["$valueInCents", 0] }, "$valueInCents", 0] } },
+              income: { $sum: { $cond: [{ $gt: ["$valueInCents", 0] }, "$valueInCents", 0] } },
+            },
+          },
+        ]);
+        const label = periodStart.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" });
+        return {
+          label,
+          periodStart,
+          spending: Math.abs(agg?.spending ?? 0),
+          income: agg?.income ?? 0,
+        };
+      })
+    );
+
+    res.json({ trends: results });
+  } catch (error) {
+    console.error("Error fetching spending trends:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -628,7 +699,7 @@ router.post("/import-csv", authMiddleware, upload.single("file"), async (req, re
       await new Transaction({
         userId: req.user.userId,
         transactionId,
-        description: desc,
+        description: encryptDesc(desc),
         valueInCents,
         transactionDate: txnDate,
         settleDate: txnDate,

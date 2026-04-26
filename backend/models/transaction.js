@@ -9,6 +9,7 @@ const transactionSchema = new mongoose.Schema({
   currency: { type: String, default: "AUD" },
   valueInCents: { type: Number, required: true },
   description: { type: String },
+  note: { type: String },
   categoryId: {type: String, default: "other"},
   upCategoryId: { type: String },
   accountId: { type: String },

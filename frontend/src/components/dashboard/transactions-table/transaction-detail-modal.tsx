@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Calendar, Tag, DollarSign, ArrowUpDown, Loader2, Trash2 } from "lucide-react";
+import { X, Calendar, Tag, DollarSign, ArrowUpDown, Loader2, Trash2, FileText } from "lucide-react";
 import { useCurrency } from "@/src/contexts/currency-context";
 import { fmt as fmtLib } from "@/src/lib/currency";
 
 interface Transaction {
   _id: string;
   description: string;
+  note?: string;
   valueInCents: number;
   transactionDate: string | null;
   settleDate: string | null;
@@ -67,9 +68,8 @@ export default function TransactionDetailModal({
   const fmtAmount = (cents: number, txnCurrency = "AUD") =>
     fmtLib(cents, txnCurrency, preferredCurrency, true);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    transaction.categoryId
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState(transaction.categoryId);
+  const [note, setNote] = useState(transaction.note ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -92,13 +92,13 @@ export default function TransactionDetailModal({
   }, [onClose]);
 
   async function handleSave() {
-    if (selectedCategoryId === transaction.categoryId) return;
+    if (!hasChanged) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/transaction/${transaction._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId: selectedCategoryId }),
+        body: JSON.stringify({ categoryId: selectedCategoryId, note }),
       });
       const data = await res.json();
       if (res.ok && data.transaction) {
@@ -128,7 +128,7 @@ export default function TransactionDetailModal({
 
   const isNegative = transaction.valueInCents < 0;
   const dateRaw = transaction.transactionDate ?? transaction.settleDate;
-  const hasChanged = selectedCategoryId !== transaction.categoryId;
+  const hasChanged = selectedCategoryId !== transaction.categoryId || note !== (transaction.note ?? "");
 
   const selectedCat = categories.find(
     (c) => c.categoryId === selectedCategoryId
@@ -236,6 +236,21 @@ export default function TransactionDetailModal({
                 </div>
               </div>
             )}
+        </div>
+
+        {/* Note */}
+        <div className="mx-5 mb-4 p-4 bg-zinc-800/60 border border-white/5 rounded-xl">
+          <label className="block text-xs font-medium text-zinc-400 mb-2">
+            <FileText size={12} className="inline mr-1 -mt-0.5" />
+            Note
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a personal note..."
+            rows={2}
+            className="w-full bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/25 resize-none transition-colors"
+          />
         </div>
 
         {/* Category selector */}

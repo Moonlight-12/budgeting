@@ -4,16 +4,35 @@ const User = require("../models/user");
 const authMiddleware = require("../middleware/auth");
 const { encrypt, decrypt } = require("../utils/encrypt");
 const { randomInt } = require("crypto");
+const { sendMail } = require("../utils/mailer");
 
 // PUT: update preferred display currency
 router.put("/preference", authMiddleware, async (req, res) => {
   try {
-    const { preferredCurrency } = req.body;
-    if (!["AUD", "IDR"].includes(preferredCurrency)) {
-      return res.status(400).json({ message: "Invalid currency. Must be AUD or IDR" });
+    const { preferredCurrency, billingStartDay } = req.body;
+    const update = {};
+
+    if (preferredCurrency !== undefined) {
+      if (!["AUD", "IDR"].includes(preferredCurrency)) {
+        return res.status(400).json({ message: "Invalid currency. Must be AUD or IDR" });
+      }
+      update.preferredCurrency = preferredCurrency;
     }
-    await User.findByIdAndUpdate(req.user.userId, { preferredCurrency });
-    res.json({ message: "Preference updated", preferredCurrency });
+
+    if (billingStartDay !== undefined) {
+      const d = parseInt(billingStartDay);
+      if (!Number.isInteger(d) || d < 1 || d > 28) {
+        return res.status(400).json({ message: "billingStartDay must be between 1 and 28" });
+      }
+      update.billingStartDay = d;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: "No valid preference fields provided" });
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.userId, update, { new: true });
+    res.json({ message: "Preference updated", preferredCurrency: user.preferredCurrency, billingStartDay: user.billingStartDay });
   } catch (error) {
     console.error("Error updating preference:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -121,21 +140,12 @@ router.post("/link-email/send-otp", authMiddleware, async (req, res) => {
 
     await User.findByIdAndUpdate(req.user.userId, { otp, otpExpiry });
 
-    const nodemailer = require("nodemailer");
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
-
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: "Your verification code",
-      text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
-      html: `<p>Your verification code is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`,
-    });
+    await sendMail(
+      email,
+      "Your verification code",
+      `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
+      `<p>Your verification code is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
+    );
 
     res.json({ message: "OTP sent" });
   } catch (error) {
