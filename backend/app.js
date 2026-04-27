@@ -6,6 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const app = express()
 const connectDB = require('./config/db');
+const { isReadOnly } = require('./config/db');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimit');
 
 // Ensure DB is connected before every request (safe for serverless cold starts)
@@ -41,6 +42,18 @@ app.use(cookieParser());
 // Rate limiting
 app.use("/api/v1", apiLimiter);
 app.use("/api/v1/auth", authLimiter);
+
+// Block writes when running on secondary (read-only failover mode)
+app.use("/api/v1", (req, res, next) => {
+  if (isReadOnly() && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    // Allow auth so users can still sign in/out during an outage
+    if (req.path.startsWith("/auth/")) return next();
+    return res.status(503).json({
+      message: "Service is in read-only mode while the primary database recovers. Please try again shortly.",
+    });
+  }
+  next();
+});
 
 app.use("/api/v1", require("./config/routes"));
 
