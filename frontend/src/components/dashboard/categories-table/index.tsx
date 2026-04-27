@@ -48,7 +48,7 @@ interface Allocation {
 
 // All Up Bank / budget data is AUD cents — formatters convert to preferred display currency
 function useFormatters() {
-  const { preferredCurrency, billingStartDay } = useCurrency();
+  const { preferredCurrency } = useCurrency();
   return {
     fmt: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency),
     fmtFull: (cents: number, txnCurrency = "AUD") => fmtCurrency(cents, txnCurrency, preferredCurrency, true),
@@ -227,6 +227,7 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionM
 
 export default function CategoriesTable() {
   const { fmt } = useFormatters();
+  const { billingStartDay } = useCurrency();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodLabel, setPeriodLabel] = useState("");
