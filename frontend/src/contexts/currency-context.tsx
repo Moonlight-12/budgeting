@@ -36,8 +36,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // Sync from server on mount
   useEffect(() => {
     fetch("/api/users/profile")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         const c = data.user?.preferredCurrency as Currency | undefined;
         if (c === "AUD" || c === "IDR") {
           setPreferredCurrency(c);

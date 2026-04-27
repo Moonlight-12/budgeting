@@ -111,6 +111,14 @@ router.put("/up-token", authMiddleware, async (req, res) => {
     if (!upApiKey || typeof upApiKey !== "string") {
       return res.status(400).json({ message: "upApiKey is required" });
     }
+
+    const pingRes = await fetch("https://api.up.com.au/api/v1/util/ping", {
+      headers: { Authorization: `Bearer ${upApiKey}` },
+    });
+    if (!pingRes.ok) {
+      return res.status(400).json({ message: "Invalid Up Bank API key. Check your token and try again." });
+    }
+
     await User.findByIdAndUpdate(req.user.userId, { upApiKey: encrypt(upApiKey) });
     res.json({
       message: "Up Bank token saved",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Target, Tags, Settings2, Link2, Link2Off, LogOut, User } from "lucide-react";
+import { Target, Settings2, Link2, Link2Off, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
@@ -16,7 +16,7 @@ import SavingsGoals from "./savings-goals";
 
 export default function Dashboard() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [recategorizing, setRecategorizing] = useState(false);
+  const [upTokenError, setUpTokenError] = useState<string | null>(null);
   const [showBudgetEdit, setShowBudgetEdit] = useState(false);
   const [budgetValue, setBudgetValue] = useState("");
   const [updating, setUpdating] = useState(false);
@@ -53,27 +53,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleRecategorize = async () => {
-    setRecategorizing(true);
-    setSyncResult(null);
-    try {
-      const response = await fetch("/api/transactions/recategorize", { method: "POST" });
-      const data = await response.json();
-      if (response.ok) {
-        setSyncResult(`${data.updated} of ${data.total} recategorized`);
-      } else {
-        setSyncResult(data.message || "Recategorize failed");
-      }
-    } catch {
-      setSyncResult("Network error");
-    } finally {
-      setRecategorizing(false);
-    }
-  };
-
   const handleSaveUpToken = async () => {
     if (!upTokenValue.trim()) return;
     setSavingUpToken(true);
+    setUpTokenError(null);
     try {
       const response = await fetch("/api/users/up-token", {
         method: "PUT",
@@ -85,9 +68,12 @@ export default function Dashboard() {
         setUpTokenMasked(data.maskedToken);
         setUpTokenValue("");
         setShowUpTokenEdit(false);
+      } else {
+        setUpTokenError(data.message || "Invalid token");
       }
     } catch (error) {
       console.error("Error saving Up token:", error);
+      setUpTokenError("Network error");
     } finally {
       setSavingUpToken(false);
     }
@@ -174,14 +160,15 @@ export default function Dashboard() {
                 type="password"
                 placeholder="up:yeah:..."
                 value={upTokenValue}
-                onChange={(e) => setUpTokenValue(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSaveUpToken(); if (e.key === "Escape") setShowUpTokenEdit(false); }}
-                className="w-52 text-white bg-zinc-900 border-white/10 font-mono text-xs"
+                onChange={(e) => { setUpTokenValue(e.target.value); setUpTokenError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveUpToken(); if (e.key === "Escape") { setShowUpTokenEdit(false); setUpTokenError(null); } }}
+                className={`w-52 text-white bg-zinc-900 font-mono text-xs ${upTokenError ? "border-red-500" : "border-white/10"}`}
               />
+              {upTokenError && <span className="text-xs text-red-400">{upTokenError}</span>}
               <Button onClick={handleSaveUpToken} disabled={savingUpToken} size="sm">
-                {savingUpToken ? "Saving..." : "Save"}
+                {savingUpToken ? "Validating..." : "Save"}
               </Button>
-              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white" onClick={() => { setShowUpTokenEdit(false); setUpTokenValue(""); }}>
+              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white" onClick={() => { setShowUpTokenEdit(false); setUpTokenValue(""); setUpTokenError(null); }}>
                 Cancel
               </Button>
             </>
@@ -197,16 +184,6 @@ export default function Dashboard() {
             </Button>
           )}
 
-<Button
-            size="sm"
-            variant="outline"
-            onClick={handleRecategorize}
-            disabled={recategorizing}
-            className="text-zinc-300 border-white/10 bg-transparent hover:bg-zinc-800"
-          >
-            <Tags size={14} className="mr-1.5" />
-            {recategorizing ? "Recategorizing..." : "Recategorize"}
-          </Button>
 
           <Button
             size="sm"
