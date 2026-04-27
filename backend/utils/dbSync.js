@@ -1,89 +1,71 @@
-const mongoose = require("mongoose");
+const { MongoClient } = require("mongodb");
 
 const DB_NAME = "budgeting";
-const RETRY_DELAY_MS = 15 * 1000;
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+const COLLECTIONS = ["users", "transactions", "categories", "budgets", "budgetsavings", "savingsgoals"];
 
 function normalizeUri(uri) {
-  // Ensure the URI ends with the DB name
-  const u = new URL(uri);
-  if (!u.pathname || u.pathname === "/") u.pathname = `/${DB_NAME}`;
-  return u.toString();
+  const base = uri.replace(/\/$/, "");
+  const afterHost = base.split(".net")[1] ?? "";
+  return !afterHost || afterHost === "/" || afterHost === ""
+    ? `${base}/${DB_NAME}`
+    : base;
+}
+
+async function syncOnce(primaryDb, secondaryDb) {
+  let total = 0;
+  for (const name of COLLECTIONS) {
+    try {
+      const docs = await primaryDb.collection(name).find({}).toArray();
+      if (docs.length === 0) continue;
+      const coll = secondaryDb.collection(name);
+      const bulk = coll.initializeUnorderedBulkOp();
+      for (const doc of docs) {
+        bulk.find({ _id: doc._id }).upsert().replaceOne(doc);
+      }
+      await bulk.execute();
+      total += docs.length;
+    } catch (err) {
+      console.error(`[Sync] Failed to sync "${name}":`, err.message);
+    }
+  }
+  console.log(`[Sync] Synced ${total} documents at ${new Date().toISOString()}`);
 }
 
 async function startSync() {
   if (!process.env.MONGODB_URI_SECONDARY) return;
 
-  let primaryConn, secondaryConn;
+  async function run() {
+    let primaryClient, secondaryClient;
+    try {
+      primaryClient = new MongoClient(normalizeUri(process.env.MONGODB_URI), { serverSelectionTimeoutMS: 10000 });
+      secondaryClient = new MongoClient(normalizeUri(process.env.MONGODB_URI_SECONDARY), { serverSelectionTimeoutMS: 10000 });
 
-  async function connect() {
-    primaryConn = mongoose.createConnection(normalizeUri(process.env.MONGODB_URI), {
-      serverSelectionTimeoutMS: 10000,
-    });
-    secondaryConn = mongoose.createConnection(normalizeUri(process.env.MONGODB_URI_SECONDARY), {
-      serverSelectionTimeoutMS: 10000,
-    });
-    await primaryConn.asPromise();
-    await secondaryConn.asPromise();
-    console.log("[Sync] Connected to both databases");
-  }
+      await primaryClient.connect();
+      await secondaryClient.connect();
+      console.log("[Sync] Connected to both databases");
 
-  async function watch() {
-    const primaryDb = primaryConn.db;
-    const secondaryDb = secondaryConn.db;
+      const primaryDb = primaryClient.db(DB_NAME);
+      const secondaryDb = secondaryClient.db(DB_NAME);
 
-    const changeStream = primaryDb.watch([], {
-      fullDocument: "updateLookup",
-    });
+      await syncOnce(primaryDb, secondaryDb);
 
-    changeStream.on("change", async (event) => {
-      try {
-        const coll = secondaryDb.collection(event.ns.coll);
-        const id = event.documentKey._id;
-
-        if (event.operationType === "insert") {
-          await coll.replaceOne({ _id: id }, event.fullDocument, { upsert: true });
-        } else if (event.operationType === "update" || event.operationType === "replace") {
-          if (event.fullDocument) {
-            await coll.replaceOne({ _id: id }, event.fullDocument, { upsert: true });
-          }
-        } else if (event.operationType === "delete") {
-          await coll.deleteOne({ _id: id });
+      setInterval(async () => {
+        try {
+          await syncOnce(primaryDb, secondaryDb);
+        } catch (err) {
+          console.error("[Sync] Interval sync failed:", err.message);
         }
-      } catch (err) {
-        console.error("[Sync] Failed to apply change:", err.message);
-      }
-    });
-
-    changeStream.on("error", async (err) => {
-      console.error("[Sync] Change stream error:", err.message);
-      await changeStream.close().catch(() => {});
-      scheduleRetry();
-    });
-
-    console.log("[Sync] Watching primary for changes...");
+      }, SYNC_INTERVAL_MS);
+    } catch (err) {
+      console.error("[Sync] Connection failed:", err.message);
+      if (primaryClient) await primaryClient.close().catch(() => {});
+      if (secondaryClient) await secondaryClient.close().catch(() => {});
+      setTimeout(run, 30 * 1000);
+    }
   }
 
-  function scheduleRetry() {
-    setTimeout(async () => {
-      try {
-        if (primaryConn) await primaryConn.close().catch(() => {});
-        if (secondaryConn) await secondaryConn.close().catch(() => {});
-        await connect();
-        await watch();
-      } catch (err) {
-        console.error("[Sync] Reconnect failed:", err.message);
-        scheduleRetry();
-      }
-    }, RETRY_DELAY_MS);
-  }
-
-  try {
-    await connect();
-    await watch();
-  } catch (err) {
-    console.error("[Sync] Initial connection failed:", err.message);
-    scheduleRetry();
-  }
+  run();
 }
 
 module.exports = { startSync };

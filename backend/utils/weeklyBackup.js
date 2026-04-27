@@ -24,7 +24,9 @@ async function runBackup() {
   let sourceConn, backupConn;
   try {
     sourceConn = mongoose.createConnection(normalizeUri(process.env.MONGODB_URI, SOURCE_DB));
+    sourceConn.on("error", (err) => console.error("[Backup] Source connection error:", err.message));
     backupConn = mongoose.createConnection(normalizeUri(process.env.MONGODB_URI_BACKUP, backupDbName));
+    backupConn.on("error", (err) => console.error("[Backup] Backup connection error:", err.message));
     await sourceConn.asPromise();
     await backupConn.asPromise();
 

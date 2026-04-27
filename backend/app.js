@@ -61,11 +61,29 @@ app.get('/', (req, res) => {
   res.send('ok')
 })
 
-// Temporary — remove after finding outbound IP
+// Temporary — remove after debugging
 app.get('/debug/ip', async (req, res) => {
   const r = await fetch('https://api.ipify.org?format=json');
   const data = await r.json();
   res.json(data);
+});
+
+app.get('/debug/db', async (req, res) => {
+  const { MongoClient } = require('mongodb');
+  const results = {};
+  for (const [key, uri] of [['secondary', process.env.MONGODB_URI_SECONDARY], ['backup', process.env.MONGODB_URI_BACKUP]]) {
+    if (!uri) { results[key] = 'not configured'; continue; }
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
+    try {
+      await client.connect();
+      await client.db().command({ ping: 1 });
+      results[key] = 'connected';
+      await client.close();
+    } catch (e) {
+      results[key] = e.message;
+    }
+  }
+  res.json(results);
 });
 
 module.exports = app;

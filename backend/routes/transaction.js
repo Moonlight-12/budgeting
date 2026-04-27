@@ -151,6 +151,9 @@ router.post("/sync", authMiddleware, async (req, res) => {
     const accountsResponse = await fetch("https://api.up.com.au/api/v1/accounts", {
       headers: { Authorization: `Bearer ${upApiKey}` },
     });
+    if (!accountsResponse.ok) {
+      return res.status(400).json({ message: `Up Bank rejected the API key (${accountsResponse.status}). Re-save your token in Profile.` });
+    }
     const accountsData = await accountsResponse.json();
     const availableAccounts = accountsData.data?.map((a) => ({
       id: a.id,
