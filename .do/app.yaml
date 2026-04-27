@@ -1,0 +1,63 @@
+name: budgeting-app
+region: syd
+
+services:
+  - name: backend
+    dockerfile_path: Dockerfile
+    source_dir: backend
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: Moonlight-12/budgeting-app
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: PORT
+        value: "8080"
+        scope: RUN_TIME
+      - key: NODE_ENV
+        value: production
+        scope: RUN_TIME
+      - key: MONGODB_URI
+        scope: RUN_TIME
+        type: SECRET
+      - key: MONGODB_URI_SECONDARY
+        scope: RUN_TIME
+        type: SECRET
+      - key: MONGODB_URI_BACKUP
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: REFRESH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_CLIENT_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: FRONTEND_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+        scope: RUN_TIME
+      - key: SMTP_PORT
+        value: "587"
+        scope: RUN_TIME
+      - key: SMTP_SECURE
+        value: "false"
+        scope: RUN_TIME
+      - key: SMTP_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_PASS
+        scope: RUN_TIME
+        type: SECRET
+      - key: SMTP_FROM
+        scope: RUN_TIME
+        type: SECRET
