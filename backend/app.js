@@ -61,4 +61,11 @@ app.get('/', (req, res) => {
   res.send('ok')
 })
 
+// Temporary — remove after finding outbound IP
+app.get('/debug/ip', async (req, res) => {
+  const r = await fetch('https://api.ipify.org?format=json');
+  const data = await r.json();
+  res.json(data);
+});
+
 module.exports = app;
