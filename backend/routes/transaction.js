@@ -121,7 +121,7 @@ const { getBudgetPeriod } = require("../utils/budgetPeriod");
 router.get("/accounts", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
+    const upApiKey = user?.upApiKey ? decrypt(user.upApiKey) : null;
     if (!upApiKey) return res.status(400).json({ message: "No Up Bank API key configured." });
 
     const response = await fetch("https://api.up.com.au/api/v1/accounts", {
@@ -137,7 +137,7 @@ router.get("/accounts", authMiddleware, async (req, res) => {
 router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = (user?.upApiKey ? decrypt(user.upApiKey) : null) || process.env.UP_API_KEY;
+    const upApiKey = user?.upApiKey ? decrypt(user.upApiKey) : null;
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
     }
