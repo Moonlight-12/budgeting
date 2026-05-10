@@ -305,7 +305,7 @@ export default function CategoriesTable() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [billingStartDay]);
 
   // Compute totals
   const totals = useMemo(() => {

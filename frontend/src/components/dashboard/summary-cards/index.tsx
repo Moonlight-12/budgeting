@@ -28,7 +28,7 @@ export default function SummaryCards() {
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [billingStartDay]);
 
   const cards = [
     {

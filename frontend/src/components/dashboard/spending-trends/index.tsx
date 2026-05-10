@@ -44,7 +44,7 @@ export default function SpendingTrends() {
       .then((data) => setTrends(data.trends ?? []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [billingStartDay]);
 
   const maxSpending = Math.max(...trends.map((t) => t.spending), 1);
 

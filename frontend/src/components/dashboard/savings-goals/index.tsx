@@ -58,26 +58,26 @@ function GoalForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-zinc-800/60 border border-white/8 rounded-xl p-4 space-y-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/25"
           placeholder="Goal name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <div className="flex gap-1">
+        <div className="flex gap-1.5 flex-wrap">
           {COLORS.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className="w-6 h-6 rounded-full border-2 transition-all"
+              className="w-7 h-7 rounded-full border-2 transition-all shrink-0"
               style={{ backgroundColor: c, borderColor: color === c ? "white" : "transparent" }}
             />
           ))}
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/25"
           placeholder="Target amount ($)"

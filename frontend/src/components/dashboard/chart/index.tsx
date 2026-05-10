@@ -186,7 +186,7 @@ export default function Chart() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [billingStartDay]);
 
   const remaining = budget - spending;
   const percentage = budget > 0 ? Math.max(Math.min((remaining / budget) * 100, 100), 0) : 0;
