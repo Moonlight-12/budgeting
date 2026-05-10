@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { ENABLE_DB_FAILOVER } = require("./features");
 
 let usingSecondary = false;
 let reconnectTimer = null;
@@ -10,7 +11,7 @@ async function _connect() {
     usingSecondary = false;
     _stopReconnectTimer();
   } catch (primaryErr) {
-    if (!process.env.MONGODB_URI_SECONDARY) {
+    if (!ENABLE_DB_FAILOVER || !process.env.MONGODB_URI_SECONDARY) {
       throw primaryErr;
     }
     console.error("[DB] Primary unavailable, failing over to secondary:", primaryErr.message);

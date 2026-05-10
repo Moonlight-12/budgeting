@@ -6,6 +6,14 @@ const Transaction = require("../models/transaction");
 const Category = require("../models/category");
 const User = require("../models/user");
 const { encrypt, decrypt } = require("../utils/encrypt");
+const { ENABLE_PER_USER_UP_KEY } = require("../config/features");
+
+async function resolveUpApiKey(user) {
+  if (ENABLE_PER_USER_UP_KEY) {
+    return user?.upApiKey ? decrypt(user.upApiKey) : null;
+  }
+  return process.env.UP_API_KEY ?? null;
+}
 
 const encryptDesc = (desc) => desc ? encrypt(desc) : desc;
 const decryptDesc = (desc) => desc ? decrypt(desc) : desc;
@@ -120,8 +128,8 @@ const { getBudgetPeriod } = require("../utils/budgetPeriod");
 
 router.get("/accounts", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = user?.upApiKey ? decrypt(user.upApiKey) : null;
+    const user = ENABLE_PER_USER_UP_KEY ? await User.findById(req.user.userId).select("upApiKey") : null;
+    const upApiKey = await resolveUpApiKey(user);
     if (!upApiKey) return res.status(400).json({ message: "No Up Bank API key configured." });
 
     const response = await fetch("https://api.up.com.au/api/v1/accounts", {
@@ -136,8 +144,8 @@ router.get("/accounts", authMiddleware, async (req, res) => {
 
 router.post("/sync", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("upApiKey");
-    const upApiKey = user?.upApiKey ? decrypt(user.upApiKey) : null;
+    const user = ENABLE_PER_USER_UP_KEY ? await User.findById(req.user.userId).select("upApiKey") : null;
+    const upApiKey = await resolveUpApiKey(user);
     if (!upApiKey) {
       return res.status(400).json({ message: "No Up Bank API key configured. Add your token in the dashboard." });
     }

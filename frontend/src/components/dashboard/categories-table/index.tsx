@@ -55,6 +55,40 @@ function useFormatters() {
   };
 }
 
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+function computePeriodLabel(startDay: number): string {
+  const now = new Date();
+  const day = now.getDate();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  let sMonth, sYear, eMonth, eYear;
+  if (day < startDay) {
+    sMonth = month === 0 ? 11 : month - 1;
+    sYear  = month === 0 ? year - 1 : year;
+    eMonth = month;
+    eYear  = year;
+  } else {
+    sMonth = month; sYear = year;
+    eMonth = month === 11 ? 0 : month + 1;
+    eYear  = month === 11 ? year + 1 : year;
+  }
+
+  const fmt = (d: number, m: number, y: number) =>
+    new Date(y, m, d).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+
+  if (startDay === 1) {
+    const lastDay = new Date(sYear, sMonth + 1, 0).getDate();
+    return `${fmt(1, sMonth, sYear)} – ${fmt(lastDay, sMonth, sYear)}`;
+  }
+  return `${fmt(startDay, sMonth, sYear)} – ${fmt(startDay - 1, eMonth, eYear)}`;
+}
+
 function getDate(txn: Transaction) {
   const raw = txn.transactionDate ?? txn.settleDate;
   if (!raw) return "—";
@@ -227,7 +261,7 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionM
 
 export default function CategoriesTable() {
   const { fmt } = useFormatters();
-  const { billingStartDay } = useCurrency();
+  const { billingStartDay, setBillingStartDay } = useCurrency();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [periodLabel, setPeriodLabel] = useState("");
@@ -380,9 +414,20 @@ export default function CategoriesTable() {
       <div className="px-5 py-4 flex items-center justify-between border-b border-white/8">
         <h2 className="text-sm font-semibold text-white">Spending by Category</h2>
         <div className="flex items-center gap-3">
-          {periodLabel && (
-            <span className="text-xs text-zinc-500">{periodLabel}</span>
-          )}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setBillingStartDay(Math.max(1, billingStartDay - 1))}
+              className="w-5 h-5 flex items-center justify-center rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors text-xs"
+            >−</button>
+            <div className="text-center">
+              <div className="text-xs text-zinc-300 tabular-nums leading-tight">{ordinal(billingStartDay)}</div>
+              <div className="text-[10px] text-zinc-500 leading-tight whitespace-nowrap">{computePeriodLabel(billingStartDay)}</div>
+            </div>
+            <button
+              onClick={() => setBillingStartDay(Math.min(28, billingStartDay + 1))}
+              className="w-5 h-5 flex items-center justify-center rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors text-xs"
+            >+</button>
+          </div>
           {savedBalance > 0 && (
             <span className="text-xs text-emerald-400/80 bg-emerald-400/10 px-2 py-0.5 rounded-full">
               <PiggyBank size={11} className="inline mr-1 -mt-0.5" />
