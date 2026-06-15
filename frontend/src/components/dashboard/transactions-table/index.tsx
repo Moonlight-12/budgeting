@@ -310,12 +310,21 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function monthStartStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+function billingPeriodStart(startDay: number): string {
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth();
+  const year = today.getFullYear();
+  let sMonth = month, sYear = year;
+  if (day < startDay) {
+    sMonth = month === 0 ? 11 : month - 1;
+    sYear = month === 0 ? year - 1 : year;
+  }
+  return new Date(sYear, sMonth, startDay).toISOString().slice(0, 10);
 }
 
 export default function TransactionsTable() {
+  const { billingStartDay } = useCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -324,8 +333,15 @@ export default function TransactionsTable() {
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [dateFrom, setDateFrom] = useState(monthStartStr);
+  // SSR-safe default; updated client-side to the actual billing period start
+  const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
+
+  useEffect(() => {
+    setDateFrom(billingPeriodStart(billingStartDay));
+    setDateTo(todayStr());
+    setPage(1);
+  }, [billingStartDay]);
 
   useEffect(() => {
     fetch("/api/transactions/all")
