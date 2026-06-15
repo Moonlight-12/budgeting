@@ -10,31 +10,31 @@ A personal budgeting app for tracking spending, managing categories, and setting
 
 ### Dashboard
 DESKTOP
-<img width="2560" height="354" alt="Screenshot 2026-04-20 at 10 18 57 pm" src="https://github.com/user-attachments/assets/aecdeca0-fe79-458b-89fd-a686e943b6bc" />
+<img width="2560" height="354" alt="Screenshot 2026-04-20 at 10 18 57 pm" src="https://github.com/user-attachments/assets/aecdeca0-fe79-458b-89fd-a686e943b6bc" />
 
 MOBILE
-<img width="329" height="527" alt="Screenshot 2026-04-20 at 10 19 05 pm" src="https://github.com/user-attachments/assets/3cc13dc7-580f-49fe-a952-1afabcda842f" />
+<img width="329" height="527" alt="Screenshot 2026-04-20 at 10 19 05 pm" src="https://github.com/user-attachments/assets/3cc13dc7-580f-49fe-a952-1afabcda842f" />
 
 ### Categories & Budget Tracking
 DESKTOP
-<img width="2084" height="1100" alt="Screenshot 2026-04-20 at 10 19 34 pm" src="https://github.com/user-attachments/assets/ae8feb37-db33-4204-bd0d-87b71e1a262b" />
+<img width="2084" height="1100" alt="Screenshot 2026-04-20 at 10 19 34 pm" src="https://github.com/user-attachments/assets/ae8feb37-db33-4204-bd0d-87b71e1a262b" />
 
 MOBILE
-<img width="325" height="648" alt="Screenshot 2026-04-20 at 10 19 27 pm" src="https://github.com/user-attachments/assets/f4569143-a272-4e02-b668-68230ef1175d" />
+<img width="325" height="648" alt="Screenshot 2026-04-20 at 10 19 27 pm" src="https://github.com/user-attachments/assets/f4569143-a272-4e02-b668-68230ef1175d" />
 
 ### Transaction Management
 DESKTOP
-<img width="469" height="444" alt="Screenshot 2026-04-20 at 10 19 59 pm" src="https://github.com/user-attachments/assets/4db72e18-e339-4c0b-b2df-d8e9ef272f66" />
+<img width="469" height="444" alt="Screenshot 2026-04-20 at 10 19 59 pm" src="https://github.com/user-attachments/assets/4db72e18-e339-4c0b-b2df-d8e9ef272f66" />
 
 MOBILE
-<img width="434" height="930" alt="Screenshot 2026-04-20 at 10 20 17 pm" src="https://github.com/user-attachments/assets/df453e08-2a48-46e6-8551-5c6244bc8a7f" />
+<img width="434" height="930" alt="Screenshot 2026-04-20 at 10 20 17 pm" src="https://github.com/user-attachments/assets/df453e08-2a48-46e6-8551-5c6244bc8a7f" />
 
 ### Sign In
 DESKTOP
-<img width="2097" height="1328" alt="Screenshot 2026-04-20 at 10 20 38 pm" src="https://github.com/user-attachments/assets/839591d2-b027-4a2f-b4a7-6aeda1bf28d6" />
+<img width="2097" height="1328" alt="Screenshot 2026-04-20 at 10 20 38 pm" src="https://github.com/user-attachments/assets/839591d2-b027-4a2f-b4a7-6aeda1bf28d6" />
 
 MOBILE
-<img width="430" height="934" alt="Screenshot 2026-04-20 at 10 20 33 pm" src="https://github.com/user-attachments/assets/37df9f80-f1e1-4d19-8e00-aa2fb7a3ec3b" />
+<img width="430" height="934" alt="Screenshot 2026-04-20 at 10 20 33 pm" src="https://github.com/user-attachments/assets/37df9f80-f1e1-4d19-8e00-aa2fb7a3ec3b" />
 
 ---
 
@@ -42,13 +42,16 @@ MOBILE
 
 - **Up Bank Sync** *(optional)* — Automatically sync transactions from your Up Bank spending account on every login; requires a Personal Access Token saved in Profile
 - **CSV Import** — Import transactions from any bank CSV export (CommBank, Westpac, ANZ, NAB); auto-detects columns and date formats; duplicates are automatically skipped
-- **Category Tracking** — Spending breakdown by category with budget vs actual comparison across billing periods
+- **Category Tracking** — Spending breakdown by category with budget vs actual comparison and vs-last-period delta
+- **Configurable Billing Period** — Set the day your billing period starts (1–28); the period automatically runs from that day to the day before in the following month (e.g. 15th → 14th)
 - **Manual Transactions** — Add transactions manually (income or expense) with IDR or AUD currency support
 - **Budget Management** — Set a monthly spending target, track progress with a visual gauge
 - **Savings Allocation** — Save remaining budget and allocate it to specific categories
-- **Multi-currency** — IDR and AUD supported; IDR input uses thousands (type `50` → `Rp50.000`); toggle display currency in Profile settings (1 AUD = 11,000 IDR); all amounts — budget wheel, categories, transactions, summary cards — convert automatically
-- **Transaction History** — Search and filter transactions by month
+- **Multi-currency** — IDR and AUD supported; IDR input uses thousands (type `50` → `Rp50.000`); toggle display currency in Profile settings; all amounts convert automatically
+- **Transaction Search** — Search by description or category, filter by date range (from/to), paginated 20 per page
 - **Delete Transactions** — Remove any transaction from the detail view
+- **Spending Trends** — Month-by-month bar chart of spending vs income
+- **Savings Goals** — Track progress toward named savings goals
 - **Google OAuth** — Sign in with Google or link your Google account
 - **Password Reset** — OTP-based password reset via email
 - **Profile Management** — Change username, link email, manage your Up Bank token, toggle display currency
@@ -82,7 +85,7 @@ The frontend **never calls the backend directly from the browser**. All requests
 Browser → Next.js API Routes (/api/*) → Express Backend → MongoDB
 ```
 
-The app uses a **15th-to-14th billing cycle** to match Up Bank's billing period.
+The billing period start day is user-configurable (1–28, default 1 = calendar month). All date-sensitive endpoints accept a `billingStartDay` query parameter alongside `utcOffset`.
 
 ---
 
@@ -131,6 +134,9 @@ FRONTEND_URL=http://localhost:3000
 PORT=5001
 GOOGLE_CLIENT_ID=<google-oauth-client-id>
 
+# Up Bank personal access token (single-user / personal use)
+UP_API_KEY=up:yeah:...
+
 # SMTP — for OTP password reset emails (Gmail App Password)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -138,9 +144,17 @@ SMTP_SECURE=false
 SMTP_USER=you@gmail.com
 SMTP_PASS=<gmail-app-password>
 SMTP_FROM=you@gmail.com
+
+# Feature flags — disabled by default (see notes below)
+ENABLE_DB_FAILOVER=false
+ENABLE_PER_USER_UP_KEY=false
 ```
 
-> **Note:** `ENCRYPTION_KEY` is used to encrypt each user's Up Bank API token at rest in MongoDB. Keep it separate from `JWT_SECRET`. If you lose this key, stored tokens cannot be decrypted and users will need to re-enter their Up Bank token.
+> **`ENCRYPTION_KEY`** encrypts each user's Up Bank API token at rest using AES-256-GCM. Keep it separate from `JWT_SECRET`. If you lose this key, stored tokens cannot be decrypted and users will need to re-enter them.
+
+> **`ENABLE_PER_USER_UP_KEY`** — when `true`, each user can save their own Up Bank PAT in Profile and sync their own account. Currently disabled: Up Bank's [Personal Access Token policy](https://developer.up.com.au/) is for personal use only, so storing third-party tokens on a server is out of scope until Up Bank launches an official OAuth flow. Set `UP_API_KEY` instead for single-user personal use.
+
+> **`ENABLE_DB_FAILOVER`** — when `true`, enables automatic failover to a secondary MongoDB cluster and weekly backup sync. Disabled by default for personal single-user deployments.
 
 ### Frontend (`frontend/.env.local`)
 
@@ -157,27 +171,27 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=<google-oauth-client-id>
 |--------|----------|-------------|
 | POST | `/api/v1/auth/signup` | Register |
 | POST | `/api/v1/auth/signin` | Sign in |
+| POST | `/api/v1/auth/signout` | Sign out |
 | POST | `/api/v1/auth/google` | Google OAuth |
 | POST | `/api/v1/auth/forgot-password` | Send reset OTP |
 | POST | `/api/v1/auth/reset-password` | Reset password |
-| POST | `/api/v1/auth/signup` | Register |
-| POST | `/api/v1/auth/signin` | Sign in |
-| POST | `/api/v1/auth/google` | Google OAuth |
-| POST | `/api/v1/auth/forgot-password` | Send reset OTP |
-| POST | `/api/v1/auth/reset-password` | Reset password |
-| POST | `/api/v1/transactions/sync` | Sync from Up Bank (auto-runs on login) |
+| POST | `/api/v1/transactions/sync` | Sync from Up Bank (runs on login) |
 | POST | `/api/v1/transactions/manual` | Add manual transaction (IDR or AUD) |
-| POST | `/api/v1/transactions/import-csv` | Import CommBank CSV export |
+| POST | `/api/v1/transactions/import-csv` | Import bank CSV export |
 | DELETE | `/api/v1/transactions/:id` | Delete a transaction |
 | GET | `/api/v1/transactions/all` | Get all transactions |
-| GET | `/api/v1/transactions/categories-summary` | Spending by category |
+| GET | `/api/v1/transactions/summary` | Period summary (spending, income, avg, biggest) |
+| GET | `/api/v1/transactions/categories-summary` | Spending by category for current period |
+| GET | `/api/v1/transactions/spending-trends` | Month-by-month spending/income chart data |
 | GET | `/api/v1/categories` | Get categories |
-| PUT | `/api/v1/categories/:id` | Update category/budget |
+| PUT | `/api/v1/categories/:id` | Update category name/budget |
 | GET | `/api/v1/budget` | Get monthly budget target |
 | PUT | `/api/v1/budget` | Set monthly budget target |
+| GET | `/api/v1/budget/savings` | Get savings goals |
+| PUT | `/api/v1/budget/savings/allocate` | Allocate budget to a savings goal |
 | GET | `/api/v1/users/profile` | Get user profile |
-| PUT | `/api/v1/users/up-token` | Save Up Bank token (stored AES-256-GCM encrypted) |
-| PUT | `/api/v1/users/preference` | Update display currency (AUD/IDR) |
+| PUT | `/api/v1/users/up-token` | Save Up Bank token (AES-256-GCM encrypted) |
+| PUT | `/api/v1/users/preference` | Update display currency and billing start day |
 
 ---
 
@@ -187,9 +201,9 @@ Both frontend and backend are deployed separately on Vercel.
 
 1. Push to `main` — Vercel auto-deploys
 2. Set environment variables in each Vercel project's **Settings → Environment Variables**
-3. Set **MongoDB Atlas Network Access** to allow `0.0.0.0/0` for Vercel's dynamic IPs
+3. Set **MongoDB Atlas Network Access** to allow `0.0.0.0/0` for Vercel's dynamic IPs (or use a Vercel dedicated egress add-on for fixed IPs to whitelist)
 4. Add your Vercel frontend URL to **Google Cloud Console → Authorized JavaScript origins**
-5. Users who want Up Bank auto-sync must save their Personal Access Token via **Profile → Up Bank Token**; all other features (manual entry, CSV import) work without it
+5. Set `UP_API_KEY` in the backend environment variables if you want Up Bank auto-sync
 
 ### Security notes
 

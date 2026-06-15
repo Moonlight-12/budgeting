@@ -262,8 +262,11 @@ function CategoryTransactionsModal({ row, onClose, onBudgetSaved, onTransactionM
 export default function CategoriesTable() {
   const { fmt } = useFormatters();
   const { billingStartDay, setBillingStartDay } = useCurrency();
+  const [mounted, setMounted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => { setMounted(true); }, []);
   const [periodLabel, setPeriodLabel] = useState("");
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
@@ -420,8 +423,8 @@ export default function CategoriesTable() {
               className="w-5 h-5 flex items-center justify-center rounded text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors text-xs"
             >−</button>
             <div className="text-center">
-              <div className="text-xs text-zinc-300 tabular-nums leading-tight">{ordinal(billingStartDay)}</div>
-              <div className="text-[10px] text-zinc-500 leading-tight whitespace-nowrap">{computePeriodLabel(billingStartDay)}</div>
+              <div className="text-xs text-zinc-300 tabular-nums leading-tight">{mounted ? ordinal(billingStartDay) : ""}</div>
+              <div className="text-[10px] text-zinc-500 leading-tight whitespace-nowrap">{mounted ? computePeriodLabel(billingStartDay) : ""}</div>
             </div>
             <button
               onClick={() => setBillingStartDay(Math.min(28, billingStartDay + 1))}
@@ -444,19 +447,19 @@ export default function CategoriesTable() {
               <th className="text-left px-5 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider sticky left-0 bg-zinc-900 z-10">
                 Category
               </th>
-              <th className="text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
+              <th className="hidden sm:table-cell text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
                 Budget
               </th>
               <th className="text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
                 Spent
               </th>
-              <th className="px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider min-w-[120px]">
+              <th className="px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider min-w-28">
                 Progress
               </th>
-              <th className="text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
+              <th className="hidden lg:table-cell text-right px-4 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
                 Remaining
               </th>
-              <th className="text-right px-5 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
+              <th className="hidden lg:table-cell text-right px-5 py-3 text-xs text-zinc-500 font-medium uppercase tracking-wider">
                 vs Last Period
               </th>
             </tr>
@@ -464,13 +467,13 @@ export default function CategoriesTable() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-zinc-500">
+                <td colSpan={5} className="px-5 py-8 text-center text-zinc-500">
                   Loading...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-zinc-500">
+                <td colSpan={5} className="px-5 py-8 text-center text-zinc-500">
                   No data for this period
                 </td>
               </tr>
@@ -500,7 +503,7 @@ export default function CategoriesTable() {
                         <span className="text-white font-medium">{row.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 text-right text-zinc-400">
+                    <td className="hidden sm:table-cell px-4 py-3.5 text-right text-zinc-400">
                       {effectiveBudget > 0 ? (
                         <span>
                           {fmt(row.budgetCents)}
@@ -537,7 +540,7 @@ export default function CategoriesTable() {
                         <span className="text-zinc-600 text-xs">no budget set</span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="hidden lg:table-cell px-4 py-3.5 text-right">
                       {effectiveBudget > 0 ? (
                         <span className={overBudget ? "text-rose-400" : "text-emerald-400"}>
                           {overBudget ? `-${fmt(Math.abs(remaining))}` : fmt(remaining)}
@@ -546,7 +549,7 @@ export default function CategoriesTable() {
                         <span className="text-zinc-600">—</span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="hidden lg:table-cell px-5 py-3.5 text-right">
                       {row.prevSpentCents === 0 && row.spentCents === 0 ? (
                         <span className="text-zinc-600">—</span>
                       ) : (
